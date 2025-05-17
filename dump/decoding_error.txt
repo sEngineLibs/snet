@@ -1,0 +1,1879 @@
+[{
+	access: []
+	doc: null
+	kind: FVar(TPath({
+		name: Socket
+		pack: []
+		params: []
+		sub: null
+	}), null)
+	meta: []
+	name: socket
+	pos: #pos
+}, {
+	access: [APublic]
+	doc: null
+	kind: FProp(default, null, TPath({
+		name: TCPState
+		pack: []
+		params: []
+		sub: null
+	}), {
+		expr: EConst(CIdent(CLOSED))
+		pos: #pos
+	})
+	meta: []
+	name: state
+	pos: #pos
+}, {
+	access: [APublic]
+	doc: null
+	kind: FProp(default, null, TPath({
+		name: HostInfo
+		pack: []
+		params: []
+		sub: null
+	}), null)
+	meta: []
+	name: local
+	pos: #pos
+}, {
+	access: [APublic]
+	doc: null
+	kind: FProp(default, null, TPath({
+		name: HostInfo
+		pack: []
+		params: []
+		sub: null
+	}), null)
+	meta: []
+	name: remote
+	pos: #pos
+}, {
+	access: [APublic]
+	doc: null
+	kind: FVar(TFunction([], TPath({
+		name: Void
+		pack: []
+		params: []
+		sub: null
+	})), null)
+	meta: []
+	name: onopen
+	pos: #pos
+}, {
+	access: [APublic]
+	doc: null
+	kind: FVar(TFunction([TOptional(TNamed(code, TPath({
+		name: Int
+		pack: []
+		params: []
+		sub: null
+	}))), TOptional(TNamed(reason, TPath({
+		name: String
+		pack: []
+		params: []
+		sub: null
+	})))], TPath({
+		name: Void
+		pack: []
+		params: []
+		sub: null
+	})), null)
+	meta: []
+	name: onerror
+	pos: #pos
+}, {
+	access: [APublic]
+	doc: null
+	kind: FVar(TFunction([TNamed(message, TPath({
+		name: Bytes
+		pack: []
+		params: []
+		sub: null
+	}))], TPath({
+		name: Void
+		pack: []
+		params: []
+		sub: null
+	})), null)
+	meta: []
+	name: onmessage
+	pos: #pos
+}, {
+	access: [APublic]
+	doc: null
+	kind: FVar(TFunction([], TPath({
+		name: Void
+		pack: []
+		params: []
+		sub: null
+	})), null)
+	meta: []
+	name: onclose
+	pos: #pos
+}, {
+	access: [APublic]
+	doc: null
+	kind: FFun({
+		args: [{
+			meta: []
+			name: host
+			opt: false
+			type: TPath({
+				name: String
+				pack: []
+				params: []
+				sub: null
+			})
+			value: null
+		}, {
+			meta: []
+			name: port
+			opt: false
+			type: TPath({
+				name: Int
+				pack: []
+				params: []
+				sub: null
+			})
+			value: null
+		}, {
+			meta: []
+			name: immediateConnect
+			opt: false
+			type: null
+			value: {
+				expr: EConst(CIdent(true))
+				pos: #pos
+			}
+		}]
+		expr: {
+			expr: EBlock([{
+				expr: EBinop(OpAssign, {
+					expr: EConst(CIdent(remote))
+					pos: #pos
+				}, {
+					expr: ENew({
+						name: HostInfo
+						pack: []
+						params: []
+						sub: null
+					}, [{
+						expr: EConst(CIdent(host))
+						pos: #pos
+					}, {
+						expr: EConst(CIdent(port))
+						pos: #pos
+					}])
+					pos: #pos
+				})
+				pos: #pos
+			}, {
+				expr: EIf({
+					expr: EConst(CIdent(immediateConnect))
+					pos: #pos
+				}, {
+					expr: ECall({
+						expr: EConst(CIdent(connect))
+						pos: #pos
+					}, [])
+					pos: #pos
+				}, null)
+				pos: #pos
+			}])
+			pos: #pos
+		}
+		params: []
+		ret: null
+	})
+	meta: []
+	name: new
+	pos: #pos
+}, {
+	access: [APublic]
+	doc: null
+	kind: FFun({
+		args: []
+		expr: {
+			expr: EMeta({
+				name: :privateAccess
+				params: []
+				pos: #pos
+			}, {
+				expr: EBlock([{
+					expr: EVars([{
+						expr: {
+							expr: ENew({
+								name: Promise
+								pack: [sasync]
+								params: []
+								sub: null
+							}, [])
+							pos: #pos
+						}
+						isFinal: false
+						isStatic: false
+						meta: []
+						name: promise
+						namePos: #pos
+						type: null
+					}])
+					pos: #pos
+				}, {
+					expr: ECall({
+						expr: EField({
+							expr: EField({
+								expr: EField({
+									expr: EConst(CIdent(sasync))
+									pos: #pos
+								}, Promise, Normal)
+								pos: #pos
+							}, pool, Normal)
+							pos: #pos
+						}, run, Normal)
+						pos: #pos
+					}, [{
+						expr: EFunction(FArrow, {
+							args: []
+							expr: {
+								expr: EMeta({
+									name: :implicitReturn
+									params: []
+									pos: #pos
+								}, {
+									expr: EReturn({
+										expr: EBlock([{
+											expr: ETry({
+												expr: EBlock([{
+													expr: EIf({
+														expr: EBinop(OpNotEq, {
+															expr: EConst(CIdent(state))
+															pos: #pos
+														}, {
+															expr: EConst(CIdent(CLOSED))
+															pos: #pos
+														})
+														pos: #pos
+													}, {
+														expr: EBlock([{
+															expr: ECall({
+																expr: EConst(CIdent(error))
+																pos: #pos
+															}, [{
+																expr: EConst(CString(Socket is not closed, DoubleQuotes))
+																pos: #pos
+															}])
+															pos: #pos
+														}, {
+															expr: null <- expected value
+															pos: null <- expected value
+														}])
+														pos: #pos
+													}, null)
+													pos: #pos
+												}, {
+													expr: ETry({
+														expr: EBlock([{
+															expr: EBinop(OpAssign, {
+																expr: EConst(CIdent(socket))
+																pos: #pos
+															}, {
+																expr: ENew({
+																	name: Socket
+																	pack: []
+																	params: []
+																	sub: null
+																}, [])
+																pos: #pos
+															})
+															pos: #pos
+														}, {
+															expr: ECall({
+																expr: EField({
+																	expr: EConst(CIdent(socket))
+																	pos: #pos
+																}, setBlocking, Normal)
+																pos: #pos
+															}, [{
+																expr: EConst(CIdent(true))
+																pos: #pos
+															}])
+															pos: #pos
+														}, {
+															expr: ECall({
+																expr: EField({
+																	expr: EConst(CIdent(socket))
+																	pos: #pos
+																}, connect, Normal)
+																pos: #pos
+															}, [{
+																expr: ENew({
+																	name: Host
+																	pack: [sys, net]
+																	params: []
+																	sub: null
+																}, [{
+																	expr: EField({
+																		expr: EConst(CIdent(remote))
+																		pos: #pos
+																	}, host, Normal)
+																	pos: #pos
+																}])
+																pos: #pos
+															}, {
+																expr: EField({
+																	expr: EConst(CIdent(remote))
+																	pos: #pos
+																}, port, Normal)
+																pos: #pos
+															}])
+															pos: #pos
+														}, {
+															expr: EVars([{
+																expr: {
+																	expr: ECall({
+																		expr: EField({
+																			expr: EConst(CIdent(socket))
+																			pos: #pos
+																		}, host, Normal)
+																		pos: #pos
+																	}, [])
+																	pos: #pos
+																}
+																isFinal: false
+																isStatic: null
+																meta: null
+																name: host
+																namePos: null
+																type: null
+															}])
+															pos: #pos
+														}, {
+															expr: EBinop(OpAssign, {
+																expr: EConst(CIdent(local))
+																pos: #pos
+															}, {
+																expr: ENew({
+																	name: HostInfo
+																	pack: []
+																	params: []
+																	sub: null
+																}, [{
+																	expr: ECall({
+																		expr: EField({
+																			expr: EConst(CIdent(Std))
+																			pos: #pos
+																		}, string, Normal)
+																		pos: #pos
+																	}, [{
+																		expr: EField({
+																			expr: EConst(CIdent(host))
+																			pos: #pos
+																		}, host, Normal)
+																		pos: #pos
+																	}])
+																	pos: #pos
+																}, {
+																	expr: EField({
+																		expr: EConst(CIdent(host))
+																		pos: #pos
+																	}, port, Normal)
+																	pos: #pos
+																}])
+																pos: #pos
+															})
+															pos: #pos
+														}, {
+															expr: EBinop(OpAssign, {
+																expr: EConst(CIdent(state))
+																pos: #pos
+															}, {
+																expr: EConst(CIdent(OPEN))
+																pos: #pos
+															})
+															pos: #pos
+														}, {
+															expr: ECall({
+																expr: EConst(CIdent(log))
+																pos: #pos
+															}, [{
+																expr: EField({
+																	expr: EConst(CIdent(Log))
+																	pos: #pos
+																}, debug, Normal)
+																pos: #pos
+															}, {
+																expr: EConst(CString(Connected to $remote, SingleQuotes))
+																pos: #pos
+															}])
+															pos: #pos
+														}, {
+															expr: EIf({
+																expr: EBinop(OpNotEq, {
+																	expr: EConst(CIdent(onopen))
+																	pos: #pos
+																}, {
+																	expr: EConst(CIdent(null))
+																	pos: #pos
+																})
+																pos: #pos
+															}, {
+																expr: ECall({
+																	expr: EConst(CIdent(onopen))
+																	pos: #pos
+																}, [])
+																pos: #pos
+															}, null)
+															pos: #pos
+														}, {
+															expr: ECall({
+																expr: EField({
+																	expr: ECall({
+																		expr: EConst(CIdent(process))
+																		pos: #pos
+																	}, [])
+																	pos: #pos
+																}, await, Normal)
+																pos: #pos
+															}, [])
+															pos: #pos
+														}])
+														pos: #pos
+													}, [{
+														expr: {
+															expr: EBlock([{
+																expr: ECall({
+																	expr: EConst(CIdent(error))
+																	pos: #pos
+																}, [{
+																	expr: EConst(CString(Failed to connect to $remote: ${e.message}, SingleQuotes))
+																	pos: #pos
+																}])
+																pos: #pos
+															}, {
+																expr: ETry({
+																	expr: ECall({
+																		expr: EField({
+																			expr: EConst(CIdent(socket))
+																			pos: #pos
+																		}, close, Normal)
+																		pos: #pos
+																	}, [])
+																	pos: #pos
+																}, [{
+																	expr: {
+																		expr: EBlock([])
+																		pos: #pos
+																	}
+																	name: _
+																	type: null
+																}])
+																pos: #pos
+															}])
+															pos: #pos
+														}
+														name: e
+														type: null
+													}])
+													pos: #pos
+												}])
+												pos: #pos
+											}, [{
+												expr: {
+													expr: EBinop(OpAssign, {
+														expr: EField({
+															expr: EConst(CIdent(promise))
+															pos: #pos
+														}, error, Normal)
+														pos: #pos
+													}, {
+														expr: EConst(CIdent(e))
+														pos: #pos
+													})
+													pos: #pos
+												}
+												name: e
+												type: null
+											}])
+											pos: #pos
+										}, {
+											expr: ECall({
+												expr: EField({
+													expr: EField({
+														expr: EConst(CIdent(promise))
+														pos: #pos
+													}, lock, Normal)
+													pos: #pos
+												}, release, Normal)
+												pos: #pos
+											}, [])
+											pos: #pos
+										}])
+										pos: #pos
+									})
+									pos: #pos
+								})
+								pos: #pos
+							}
+							params: []
+							ret: null
+						})
+						pos: #pos
+					}])
+					pos: #pos
+				}, {
+					expr: EReturn({
+						expr: EConst(CIdent(promise))
+						pos: #pos
+					})
+					pos: #pos
+				}])
+				pos: #pos
+			})
+			pos: #pos
+		}
+		params: []
+		ret: TPath({
+			name: Promise
+			pack: [sasync]
+			params: [TPType(TPath({
+				name: Void
+				pack: []
+				params: []
+				sub: null
+			}))]
+			sub: null
+		})
+	})
+	meta: [{
+		name: async
+		params: []
+		pos: #pos
+	}]
+	name: connect
+	pos: #pos
+}, {
+	access: [APublic]
+	doc: null
+	kind: FFun({
+		args: []
+		expr: {
+			expr: EBlock([{
+				expr: EIf({
+					expr: EBinop(OpEq, {
+						expr: EConst(CIdent(state))
+						pos: #pos
+					}, {
+						expr: EConst(CIdent(OPEN))
+						pos: #pos
+					})
+					pos: #pos
+				}, {
+					expr: EBlock([{
+						expr: EBinop(OpAssign, {
+							expr: EConst(CIdent(state))
+							pos: #pos
+						}, {
+							expr: EConst(CIdent(CLOSED))
+							pos: #pos
+						})
+						pos: #pos
+					}])
+					pos: #pos
+				}, {
+					expr: ECall({
+						expr: EConst(CIdent(error))
+						pos: #pos
+					}, [{
+						expr: EConst(CString(Socket is not open, DoubleQuotes))
+						pos: #pos
+					}])
+					pos: #pos
+				})
+				pos: #pos
+			}])
+			pos: #pos
+		}
+		params: []
+		ret: TPath({
+			name: Void
+			pack: []
+			params: []
+			sub: null
+		})
+	})
+	meta: []
+	name: close
+	pos: #pos
+}, {
+	access: [APublic]
+	doc: null
+	kind: FFun({
+		args: [{
+			meta: []
+			name: data
+			opt: false
+			type: TPath({
+				name: Bytes
+				pack: []
+				params: []
+				sub: null
+			})
+			value: null
+		}]
+		expr: {
+			expr: EMeta({
+				name: :privateAccess
+				params: []
+				pos: #pos
+			}, {
+				expr: EBlock([{
+					expr: EVars([{
+						expr: {
+							expr: ENew({
+								name: Promise
+								pack: [sasync]
+								params: []
+								sub: null
+							}, [])
+							pos: #pos
+						}
+						isFinal: false
+						isStatic: false
+						meta: []
+						name: promise
+						namePos: #pos
+						type: null
+					}])
+					pos: #pos
+				}, {
+					expr: ECall({
+						expr: EField({
+							expr: EField({
+								expr: EField({
+									expr: EConst(CIdent(sasync))
+									pos: #pos
+								}, Promise, Normal)
+								pos: #pos
+							}, pool, Normal)
+							pos: #pos
+						}, run, Normal)
+						pos: #pos
+					}, [{
+						expr: EFunction(FArrow, {
+							args: []
+							expr: {
+								expr: EMeta({
+									name: :implicitReturn
+									params: []
+									pos: #pos
+								}, {
+									expr: EReturn({
+										expr: EBlock([{
+											expr: ETry({
+												expr: EBlock([{
+													expr: EIf({
+														expr: EBinop(OpNotEq, {
+															expr: EConst(CIdent(state))
+															pos: #pos
+														}, {
+															expr: EConst(CIdent(OPEN))
+															pos: #pos
+														})
+														pos: #pos
+													}, {
+														expr: EBlock([{
+															expr: ECall({
+																expr: EConst(CIdent(error))
+																pos: #pos
+															}, [{
+																expr: EConst(CString(Socket is not open, DoubleQuotes))
+																pos: #pos
+															}])
+															pos: #pos
+														}, {
+															expr: null <- expected value
+															pos: null <- expected value
+														}])
+														pos: #pos
+													}, null)
+													pos: #pos
+												}, {
+													expr: ECall({
+														expr: EField({
+															expr: EField({
+																expr: EConst(CIdent(socket))
+																pos: #pos
+															}, output, Normal)
+															pos: #pos
+														}, writeBytes, Normal)
+														pos: #pos
+													}, [{
+														expr: EConst(CIdent(data))
+														pos: #pos
+													}, {
+														expr: EConst(CInt(0, null))
+														pos: #pos
+													}, {
+														expr: EField({
+															expr: EConst(CIdent(data))
+															pos: #pos
+														}, length, Normal)
+														pos: #pos
+													}])
+													pos: #pos
+												}, {
+													expr: ECall({
+														expr: EField({
+															expr: EField({
+																expr: EConst(CIdent(socket))
+																pos: #pos
+															}, output, Normal)
+															pos: #pos
+														}, flush, Normal)
+														pos: #pos
+													}, [])
+													pos: #pos
+												}, {
+													expr: ECall({
+														expr: EConst(CIdent(log))
+														pos: #pos
+													}, [{
+														expr: EField({
+															expr: EConst(CIdent(Log))
+															pos: #pos
+														}, info, Normal)
+														pos: #pos
+													}, {
+														expr: EConst(CString(Sent ${data.length} bytes, SingleQuotes))
+														pos: #pos
+													}])
+													pos: #pos
+												}])
+												pos: #pos
+											}, [{
+												expr: {
+													expr: EBinop(OpAssign, {
+														expr: EField({
+															expr: EConst(CIdent(promise))
+															pos: #pos
+														}, error, Normal)
+														pos: #pos
+													}, {
+														expr: EConst(CIdent(e))
+														pos: #pos
+													})
+													pos: #pos
+												}
+												name: e
+												type: null
+											}])
+											pos: #pos
+										}, {
+											expr: ECall({
+												expr: EField({
+													expr: EField({
+														expr: EConst(CIdent(promise))
+														pos: #pos
+													}, lock, Normal)
+													pos: #pos
+												}, release, Normal)
+												pos: #pos
+											}, [])
+											pos: #pos
+										}])
+										pos: #pos
+									})
+									pos: #pos
+								})
+								pos: #pos
+							}
+							params: []
+							ret: null
+						})
+						pos: #pos
+					}])
+					pos: #pos
+				}, {
+					expr: EReturn({
+						expr: EConst(CIdent(promise))
+						pos: #pos
+					})
+					pos: #pos
+				}])
+				pos: #pos
+			})
+			pos: #pos
+		}
+		params: []
+		ret: TPath({
+			name: Promise
+			pack: [sasync]
+			params: [TPType(TPath({
+				name: Void
+				pack: []
+				params: []
+				sub: null
+			}))]
+			sub: null
+		})
+	})
+	meta: [{
+		name: async
+		params: []
+		pos: #pos
+	}]
+	name: send
+	pos: #pos
+}, {
+	access: [APublic]
+	doc: null
+	kind: FFun({
+		args: [{
+			meta: []
+			name: bufSize
+			opt: false
+			type: null
+			value: {
+				expr: EConst(CInt(1024, null))
+				pos: #pos
+			}
+		}]
+		expr: {
+			expr: EMeta({
+				name: :privateAccess
+				params: []
+				pos: #pos
+			}, {
+				expr: EBlock([{
+					expr: EVars([{
+						expr: {
+							expr: ENew({
+								name: Promise
+								pack: [sasync]
+								params: []
+								sub: null
+							}, [])
+							pos: #pos
+						}
+						isFinal: false
+						isStatic: false
+						meta: []
+						name: promise
+						namePos: #pos
+						type: null
+					}])
+					pos: #pos
+				}, {
+					expr: ECall({
+						expr: EField({
+							expr: EField({
+								expr: EField({
+									expr: EConst(CIdent(sasync))
+									pos: #pos
+								}, Promise, Normal)
+								pos: #pos
+							}, pool, Normal)
+							pos: #pos
+						}, run, Normal)
+						pos: #pos
+					}, [{
+						expr: EFunction(FArrow, {
+							args: []
+							expr: {
+								expr: EMeta({
+									name: :implicitReturn
+									params: []
+									pos: #pos
+								}, {
+									expr: EReturn({
+										expr: EBlock([{
+											expr: ETry({
+												expr: EBlock([{
+													expr: EVars([{
+														expr: {
+															expr: ECall({
+																expr: EField({
+																	expr: EConst(CIdent(Bytes))
+																	pos: #pos
+																}, alloc, Normal)
+																pos: #pos
+															}, [{
+																expr: EConst(CIdent(bufSize))
+																pos: #pos
+															}])
+															pos: #pos
+														}
+														isFinal: false
+														isStatic: null
+														meta: null
+														name: buf
+														namePos: null
+														type: null
+													}])
+													pos: #pos
+												}, {
+													expr: EVars([{
+														expr: {
+															expr: ENew({
+																name: BytesBuffer
+																pack: []
+																params: []
+																sub: null
+															}, [])
+															pos: #pos
+														}
+														isFinal: false
+														isStatic: null
+														meta: null
+														name: data
+														namePos: null
+														type: null
+													}])
+													pos: #pos
+												}, {
+													expr: EWhile({
+														expr: EConst(CIdent(true))
+														pos: #pos
+													}, {
+														expr: EBlock([{
+															expr: EVars([{
+																expr: {
+																	expr: ECall({
+																		expr: EField({
+																			expr: EField({
+																				expr: EConst(CIdent(socket))
+																				pos: #pos
+																			}, input, Normal)
+																			pos: #pos
+																		}, readBytes, Normal)
+																		pos: #pos
+																	}, [{
+																		expr: EConst(CIdent(buf))
+																		pos: #pos
+																	}, {
+																		expr: EConst(CInt(0, null))
+																		pos: #pos
+																	}, {
+																		expr: EConst(CIdent(bufSize))
+																		pos: #pos
+																	}])
+																	pos: #pos
+																}
+																isFinal: false
+																isStatic: null
+																meta: null
+																name: len
+																namePos: null
+																type: null
+															}])
+															pos: #pos
+														}, {
+															expr: EIf({
+																expr: EBinop(OpGt, {
+																	expr: EConst(CIdent(len))
+																	pos: #pos
+																}, {
+																	expr: EConst(CInt(0, null))
+																	pos: #pos
+																})
+																pos: #pos
+															}, {
+																expr: EBlock([{
+																	expr: ECall({
+																		expr: EField({
+																			expr: EConst(CIdent(data))
+																			pos: #pos
+																		}, addBytes, Normal)
+																		pos: #pos
+																	}, [{
+																		expr: EConst(CIdent(buf))
+																		pos: #pos
+																	}, {
+																		expr: EConst(CInt(0, null))
+																		pos: #pos
+																	}, {
+																		expr: EConst(CIdent(len))
+																		pos: #pos
+																	}])
+																	pos: #pos
+																}, {
+																	expr: EIf({
+																		expr: EBinop(OpLt, {
+																			expr: EConst(CIdent(len))
+																			pos: #pos
+																		}, {
+																			expr: EConst(CIdent(bufSize))
+																			pos: #pos
+																		})
+																		pos: #pos
+																	}, {
+																		expr: EBreak
+																		pos: #pos
+																	}, null)
+																	pos: #pos
+																}])
+																pos: #pos
+															}, {
+																expr: EBinop(OpAssign, {
+																	expr: EField({
+																		expr: EConst(CIdent(promise))
+																		pos: #pos
+																	}, result, Normal)
+																	pos: #pos
+																}, {
+																	expr: EConst(CIdent(null))
+																	pos: #pos
+																})
+																pos: #pos
+															})
+															pos: #pos
+														}])
+														pos: #pos
+													}, true)
+													pos: #pos
+												}, {
+													expr: EBinop(OpAssign, {
+														expr: EField({
+															expr: EConst(CIdent(promise))
+															pos: #pos
+														}, result, Normal)
+														pos: #pos
+													}, {
+														expr: ECall({
+															expr: EField({
+																expr: EConst(CIdent(data))
+																pos: #pos
+															}, getBytes, Normal)
+															pos: #pos
+														}, [])
+														pos: #pos
+													})
+													pos: #pos
+												}])
+												pos: #pos
+											}, [{
+												expr: {
+													expr: EBinop(OpAssign, {
+														expr: EField({
+															expr: EConst(CIdent(promise))
+															pos: #pos
+														}, error, Normal)
+														pos: #pos
+													}, {
+														expr: EConst(CIdent(e))
+														pos: #pos
+													})
+													pos: #pos
+												}
+												name: e
+												type: null
+											}])
+											pos: #pos
+										}, {
+											expr: ECall({
+												expr: EField({
+													expr: EField({
+														expr: EConst(CIdent(promise))
+														pos: #pos
+													}, lock, Normal)
+													pos: #pos
+												}, release, Normal)
+												pos: #pos
+											}, [])
+											pos: #pos
+										}])
+										pos: #pos
+									})
+									pos: #pos
+								})
+								pos: #pos
+							}
+							params: []
+							ret: null
+						})
+						pos: #pos
+					}])
+					pos: #pos
+				}, {
+					expr: EReturn({
+						expr: EConst(CIdent(promise))
+						pos: #pos
+					})
+					pos: #pos
+				}])
+				pos: #pos
+			})
+			pos: #pos
+		}
+		params: []
+		ret: TPath({
+			name: Promise
+			pack: [sasync]
+			params: [TPType(TPath({
+				name: Null
+				pack: []
+				params: [TPType(TPath({
+					name: Bytes
+					pack: []
+					params: []
+					sub: null
+				}))]
+				sub: null
+			}))]
+			sub: null
+		})
+	})
+	meta: [{
+		name: async
+		params: []
+		pos: #pos
+	}]
+	name: receive
+	pos: #pos
+}, {
+	access: []
+	doc: null
+	kind: FFun({
+		args: []
+		expr: {
+			expr: EMeta({
+				name: :privateAccess
+				params: []
+				pos: #pos
+			}, {
+				expr: EBlock([{
+					expr: EVars([{
+						expr: {
+							expr: ENew({
+								name: Promise
+								pack: [sasync]
+								params: []
+								sub: null
+							}, [])
+							pos: #pos
+						}
+						isFinal: false
+						isStatic: false
+						meta: []
+						name: promise
+						namePos: #pos
+						type: null
+					}])
+					pos: #pos
+				}, {
+					expr: ECall({
+						expr: EField({
+							expr: EField({
+								expr: EField({
+									expr: EConst(CIdent(sasync))
+									pos: #pos
+								}, Promise, Normal)
+								pos: #pos
+							}, pool, Normal)
+							pos: #pos
+						}, run, Normal)
+						pos: #pos
+					}, [{
+						expr: EFunction(FArrow, {
+							args: []
+							expr: {
+								expr: EMeta({
+									name: :implicitReturn
+									params: []
+									pos: #pos
+								}, {
+									expr: EReturn({
+										expr: EBlock([{
+											expr: ETry({
+												expr: EBlock([{
+													expr: EWhile({
+														expr: EBinop(OpEq, {
+															expr: EConst(CIdent(state))
+															pos: #pos
+														}, {
+															expr: EConst(CIdent(OPEN))
+															pos: #pos
+														})
+														pos: #pos
+													}, {
+														expr: EBlock([{
+															expr: EVars([{
+																expr: {
+																	expr: ECall({
+																		expr: EField({
+																			expr: ECall({
+																				expr: EConst(CIdent(tick))
+																				pos: #pos
+																			}, [])
+																			pos: #pos
+																		}, await, Normal)
+																		pos: #pos
+																	}, [])
+																	pos: #pos
+																}
+																isFinal: false
+																isStatic: null
+																meta: null
+																name: t
+																namePos: null
+																type: null
+															}])
+															pos: #pos
+														}, {
+															expr: ECall({
+																expr: EConst(CIdent(trace))
+																pos: #pos
+															}, [{
+																expr: EConst(CIdent(t))
+																pos: #pos
+															}])
+															pos: #pos
+														}, {
+															expr: EIf({
+																expr: EUnop(OpNot, false, {
+																	expr: EConst(CIdent(t))
+																	pos: #pos
+																})
+																pos: #pos
+															}, {
+																expr: EBreak
+																pos: #pos
+															}, null)
+															pos: #pos
+														}])
+														pos: #pos
+													}, true)
+													pos: #pos
+												}, {
+													expr: ETry({
+														expr: EBlock([{
+															expr: ECall({
+																expr: EField({
+																	expr: EConst(CIdent(socket))
+																	pos: #pos
+																}, close, Normal)
+																pos: #pos
+															}, [])
+															pos: #pos
+														}, {
+															expr: EBinop(OpAssign, {
+																expr: EConst(CIdent(state))
+																pos: #pos
+															}, {
+																expr: EConst(CIdent(CLOSED))
+																pos: #pos
+															})
+															pos: #pos
+														}, {
+															expr: EIf({
+																expr: EBinop(OpNotEq, {
+																	expr: EConst(CIdent(onclose))
+																	pos: #pos
+																}, {
+																	expr: EConst(CIdent(null))
+																	pos: #pos
+																})
+																pos: #pos
+															}, {
+																expr: ECall({
+																	expr: EConst(CIdent(onclose))
+																	pos: #pos
+																}, [])
+																pos: #pos
+															}, null)
+															pos: #pos
+														}, {
+															expr: ECall({
+																expr: EConst(CIdent(log))
+																pos: #pos
+															}, [{
+																expr: EField({
+																	expr: EConst(CIdent(Log))
+																	pos: #pos
+																}, debug, Normal)
+																pos: #pos
+															}, {
+																expr: EConst(CString(Disconnected from ${remote}, SingleQuotes))
+																pos: #pos
+															}])
+															pos: #pos
+														}])
+														pos: #pos
+													}, [{
+														expr: {
+															expr: ECall({
+																expr: EConst(CIdent(error))
+																pos: #pos
+															}, [{
+																expr: EConst(CString(Error closing socket: ${e.message}, SingleQuotes))
+																pos: #pos
+															}])
+															pos: #pos
+														}
+														name: e
+														type: null
+													}])
+													pos: #pos
+												}])
+												pos: #pos
+											}, [{
+												expr: {
+													expr: EBinop(OpAssign, {
+														expr: EField({
+															expr: EConst(CIdent(promise))
+															pos: #pos
+														}, error, Normal)
+														pos: #pos
+													}, {
+														expr: EConst(CIdent(e))
+														pos: #pos
+													})
+													pos: #pos
+												}
+												name: e
+												type: null
+											}])
+											pos: #pos
+										}, {
+											expr: ECall({
+												expr: EField({
+													expr: EField({
+														expr: EConst(CIdent(promise))
+														pos: #pos
+													}, lock, Normal)
+													pos: #pos
+												}, release, Normal)
+												pos: #pos
+											}, [])
+											pos: #pos
+										}])
+										pos: #pos
+									})
+									pos: #pos
+								})
+								pos: #pos
+							}
+							params: []
+							ret: null
+						})
+						pos: #pos
+					}])
+					pos: #pos
+				}, {
+					expr: EReturn({
+						expr: EConst(CIdent(promise))
+						pos: #pos
+					})
+					pos: #pos
+				}])
+				pos: #pos
+			})
+			pos: #pos
+		}
+		params: []
+		ret: TPath({
+			name: Promise
+			pack: [sasync]
+			params: [TPType(TPath({
+				name: Void
+				pack: []
+				params: []
+				sub: null
+			}))]
+			sub: null
+		})
+	})
+	meta: [{
+		name: async
+		params: []
+		pos: #pos
+	}]
+	name: process
+	pos: #pos
+}, {
+	access: []
+	doc: null
+	kind: FFun({
+		args: []
+		expr: {
+			expr: EMeta({
+				name: :privateAccess
+				params: []
+				pos: #pos
+			}, {
+				expr: EBlock([{
+					expr: EVars([{
+						expr: {
+							expr: ENew({
+								name: Promise
+								pack: [sasync]
+								params: []
+								sub: null
+							}, [])
+							pos: #pos
+						}
+						isFinal: false
+						isStatic: false
+						meta: []
+						name: promise
+						namePos: #pos
+						type: null
+					}])
+					pos: #pos
+				}, {
+					expr: ECall({
+						expr: EField({
+							expr: EField({
+								expr: EField({
+									expr: EConst(CIdent(sasync))
+									pos: #pos
+								}, Promise, Normal)
+								pos: #pos
+							}, pool, Normal)
+							pos: #pos
+						}, run, Normal)
+						pos: #pos
+					}, [{
+						expr: EFunction(FArrow, {
+							args: []
+							expr: {
+								expr: EMeta({
+									name: :implicitReturn
+									params: []
+									pos: #pos
+								}, {
+									expr: EReturn({
+										expr: EBlock([{
+											expr: ETry({
+												expr: EBlock([{
+													expr: EVars([{
+														expr: {
+															expr: EField({
+																expr: ECall({
+																	expr: EField({
+																		expr: EConst(CIdent(Socket))
+																		pos: #pos
+																	}, select, Normal)
+																	pos: #pos
+																}, [{
+																	expr: EArrayDecl([{
+																		expr: EConst(CIdent(socket))
+																		pos: #pos
+																	}])
+																	pos: #pos
+																}, {
+																	expr: EArrayDecl([])
+																	pos: #pos
+																}, {
+																	expr: EArrayDecl([])
+																	pos: #pos
+																}, {
+																	expr: EConst(CFloat(0.01, null))
+																	pos: #pos
+																}])
+																pos: #pos
+															}, read, Normal)
+															pos: #pos
+														}
+														isFinal: false
+														isStatic: null
+														meta: null
+														name: sockets
+														namePos: null
+														type: null
+													}])
+													pos: #pos
+												}, {
+													expr: EIf({
+														expr: EBinop(OpEq, {
+															expr: EField({
+																expr: EConst(CIdent(sockets))
+																pos: #pos
+															}, length, Normal)
+															pos: #pos
+														}, {
+															expr: EConst(CInt(1, null))
+															pos: #pos
+														})
+														pos: #pos
+													}, {
+														expr: ETry({
+															expr: EBlock([{
+																expr: EVars([{
+																	expr: {
+																		expr: ECall({
+																			expr: EField({
+																				expr: ECall({
+																					expr: EConst(CIdent(receive))
+																					pos: #pos
+																				}, [])
+																				pos: #pos
+																			}, await, Normal)
+																			pos: #pos
+																		}, [])
+																		pos: #pos
+																	}
+																	isFinal: false
+																	isStatic: null
+																	meta: null
+																	name: data
+																	namePos: null
+																	type: null
+																}])
+																pos: #pos
+															}, {
+																expr: EIf({
+																	expr: EBinop(OpNotEq, {
+																		expr: EConst(CIdent(data))
+																		pos: #pos
+																	}, {
+																		expr: EConst(CIdent(null))
+																		pos: #pos
+																	})
+																	pos: #pos
+																}, {
+																	expr: EBlock([{
+																		expr: EIf({
+																			expr: EBinop(OpNotEq, {
+																				expr: EConst(CIdent(onmessage))
+																				pos: #pos
+																			}, {
+																				expr: EConst(CIdent(null))
+																				pos: #pos
+																			})
+																			pos: #pos
+																		}, {
+																			expr: ECall({
+																				expr: EConst(CIdent(onmessage))
+																				pos: #pos
+																			}, [{
+																				expr: EConst(CIdent(data))
+																				pos: #pos
+																			}])
+																			pos: #pos
+																		}, null)
+																		pos: #pos
+																	}])
+																	pos: #pos
+																}, {
+																	expr: EBlock([{
+																		expr: ECall({
+																			expr: EConst(CIdent(log))
+																			pos: #pos
+																		}, [{
+																			expr: EField({
+																				expr: EConst(CIdent(Log))
+																				pos: #pos
+																			}, debug, Normal)
+																			pos: #pos
+																		}, {
+																			expr: EConst(CString(Connection closed by peer, DoubleQuotes))
+																			pos: #pos
+																		}])
+																		pos: #pos
+																	}, {
+																		expr: EBinop(OpAssign, {
+																			expr: EField({
+																				expr: EConst(CIdent(promise))
+																				pos: #pos
+																			}, result, Normal)
+																			pos: #pos
+																		}, {
+																			expr: EConst(CIdent(false))
+																			pos: #pos
+																		})
+																		pos: #pos
+																	}])
+																	pos: #pos
+																})
+																pos: #pos
+															}])
+															pos: #pos
+														}, [{
+															expr: {
+																expr: EBlock([{
+																	expr: EIf({
+																		expr: EBinop(OpEq, {
+																			expr: EField({
+																				expr: EConst(CIdent(e))
+																				pos: #pos
+																			}, message, Normal)
+																			pos: #pos
+																		}, {
+																			expr: EConst(CString(Eof, DoubleQuotes))
+																			pos: #pos
+																		})
+																		pos: #pos
+																	}, {
+																		expr: ECall({
+																			expr: EConst(CIdent(log))
+																			pos: #pos
+																		}, [{
+																			expr: EField({
+																				expr: EConst(CIdent(Log))
+																				pos: #pos
+																			}, debug, Normal)
+																			pos: #pos
+																		}, {
+																			expr: EConst(CString(Connection closed by peer, DoubleQuotes))
+																			pos: #pos
+																		}])
+																		pos: #pos
+																	}, {
+																		expr: ECall({
+																			expr: EConst(CIdent(error))
+																			pos: #pos
+																		}, [{
+																			expr: EConst(CString(Tick failed: ${e.message}, SingleQuotes))
+																			pos: #pos
+																		}])
+																		pos: #pos
+																	})
+																	pos: #pos
+																}, {
+																	expr: EBinop(OpAssign, {
+																		expr: EField({
+																			expr: EConst(CIdent(promise))
+																			pos: #pos
+																		}, result, Normal)
+																		pos: #pos
+																	}, {
+																		expr: EConst(CIdent(false))
+																		pos: #pos
+																	})
+																	pos: #pos
+																}])
+																pos: #pos
+															}
+															name: e
+															type: null
+														}])
+														pos: #pos
+													}, null)
+													pos: #pos
+												}, {
+													expr: EBinop(OpAssign, {
+														expr: EField({
+															expr: EConst(CIdent(promise))
+															pos: #pos
+														}, result, Normal)
+														pos: #pos
+													}, {
+														expr: EConst(CIdent(true))
+														pos: #pos
+													})
+													pos: #pos
+												}])
+												pos: #pos
+											}, [{
+												expr: {
+													expr: EBinop(OpAssign, {
+														expr: EField({
+															expr: EConst(CIdent(promise))
+															pos: #pos
+														}, error, Normal)
+														pos: #pos
+													}, {
+														expr: EConst(CIdent(e))
+														pos: #pos
+													})
+													pos: #pos
+												}
+												name: e
+												type: null
+											}])
+											pos: #pos
+										}, {
+											expr: ECall({
+												expr: EField({
+													expr: EField({
+														expr: EConst(CIdent(promise))
+														pos: #pos
+													}, lock, Normal)
+													pos: #pos
+												}, release, Normal)
+												pos: #pos
+											}, [])
+											pos: #pos
+										}])
+										pos: #pos
+									})
+									pos: #pos
+								})
+								pos: #pos
+							}
+							params: []
+							ret: null
+						})
+						pos: #pos
+					}])
+					pos: #pos
+				}, {
+					expr: EReturn({
+						expr: EConst(CIdent(promise))
+						pos: #pos
+					})
+					pos: #pos
+				}])
+				pos: #pos
+			})
+			pos: #pos
+		}
+		params: []
+		ret: TPath({
+			name: Promise
+			pack: [sasync]
+			params: [TPType(TPath({
+				name: Bool
+				pack: []
+				params: []
+				sub: null
+			}))]
+			sub: null
+		})
+	})
+	meta: [{
+		name: async
+		params: []
+		pos: #pos
+	}]
+	name: tick
+	pos: #pos
+}, {
+	access: []
+	doc: null
+	kind: FFun({
+		args: [{
+			meta: []
+			name: msg
+			opt: false
+			type: TPath({
+				name: String
+				pack: []
+				params: []
+				sub: null
+			})
+			value: null
+		}]
+		expr: {
+			expr: EBlock([{
+				expr: ECall({
+					expr: EConst(CIdent(log))
+					pos: #pos
+				}, [{
+					expr: EField({
+						expr: EConst(CIdent(Log))
+						pos: #pos
+					}, error, Normal)
+					pos: #pos
+				}, {
+					expr: EConst(CIdent(msg))
+					pos: #pos
+				}])
+				pos: #pos
+			}, {
+				expr: EIf({
+					expr: EBinop(OpNotEq, {
+						expr: EConst(CIdent(onerror))
+						pos: #pos
+					}, {
+						expr: EConst(CIdent(null))
+						pos: #pos
+					})
+					pos: #pos
+				}, {
+					expr: ECall({
+						expr: EConst(CIdent(onerror))
+						pos: #pos
+					}, [{
+						expr: EConst(CIdent(null))
+						pos: #pos
+					}, {
+						expr: EConst(CIdent(msg))
+						pos: #pos
+					}])
+					pos: #pos
+				}, null)
+				pos: #pos
+			}])
+			pos: #pos
+		}
+		params: []
+		ret: TPath({
+			name: Void
+			pack: []
+			params: []
+			sub: null
+		})
+	})
+	meta: []
+	name: error
+	pos: #pos
+}, {
+	access: []
+	doc: null
+	kind: FFun({
+		args: [{
+			meta: []
+			name: f
+			opt: false
+			type: TFunction([TPath({
+				name: String
+				pack: []
+				params: []
+				sub: null
+			}), TOptional(TPath({
+				name: Bool
+				pack: []
+				params: []
+				sub: null
+			}))], TPath({
+				name: Void
+				pack: []
+				params: []
+				sub: null
+			}))
+			value: null
+		}, {
+			meta: []
+			name: msg
+			opt: false
+			type: TPath({
+				name: String
+				pack: []
+				params: []
+				sub: null
+			})
+			value: null
+		}]
+		expr: {
+			expr: EBlock([{
+				expr: ECall({
+					expr: EConst(CIdent(f))
+					pos: #pos
+				}, [{
+					expr: EConst(CString([${remote}] $msg, SingleQuotes))
+					pos: #pos
+				}])
+				pos: #pos
+			}])
+			pos: #pos
+		}
+		params: []
+		ret: TPath({
+			name: Void
+			pack: []
+			params: []
+			sub: null
+		})
+	})
+	meta: []
+	name: log
+	pos: #pos
+}]
+line 269: expected value
+line 270: expected value
+line 696: expected value
+line 697: expected value

@@ -1,0 +1,9 @@
+-cp src
+-cp tests
+-main Tests
+-L sasync
+-D LOG_ERROR
+-D LOG_DEBUG
+-D LOG_WARNING
+-D LOG_INFO
+--interp
