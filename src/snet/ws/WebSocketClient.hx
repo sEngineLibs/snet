@@ -137,7 +137,7 @@ class WebSocketClient extends NetClient<Message> {
 		for (i in 0...16)
 			b.set(i, Std.random(255));
 
-		var resp = Requests.customRequest(remote, {
+		var resp = @await Requests.request(remote, socket, {
 			headers: [
 				"Host" => remote,
 				"User-Agent" => "haxe",
@@ -149,7 +149,7 @@ class WebSocketClient extends NetClient<Message> {
 				"Cache-Control" => "no-cache",
 				"Origin" => local
 			]
-		}, false, socket, false);
+		}, "POST", 10, true);
 
 		if (resp == null) {
 			onerror('Handshake failed: no request from ${socket.host().host}');
