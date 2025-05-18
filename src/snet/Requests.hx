@@ -19,14 +19,6 @@ typedef Response = {
 	var error:String;
 };
 
-typedef Proxy = {
-	host:String,
-	port:Int,
-	auth:{
-		user:String, pass:String
-	}
-};
-
 class Requests {
 	public static var proxy(get, set):Proxy;
 
@@ -93,3 +85,52 @@ class Requests {
 		return proxy;
 	}
 }
+
+extern abstract Proxy(ProxyData) from ProxyData to ProxyData {
+	@:from
+	public static inline function fromString(value:String):Proxy {
+		var proxy:ProxyData = {
+			host: null,
+			port: 0,
+			auth: {
+				user: null,
+				pass: null
+			}
+		};
+
+		var parts1 = value.split("://");
+		var parts2 = parts1.length > 1 ? parts1[1] : parts1[0];
+		var authAndHost = parts2.split("@");
+
+		if (authAndHost.length > 1) {
+			var authParts = authAndHost[0].split(":");
+			proxy.auth.user = authParts[0];
+			proxy.auth.pass = authParts[1];
+			parts2 = authAndHost[1];
+		} else
+			parts2 = authAndHost[0];
+
+		var hostParts = parts2.split(":");
+		proxy.host = hostParts[0];
+		proxy.port = Std.parseInt(hostParts[1]);
+
+		return proxy;
+	}
+
+	@:to
+	public inline function toString():String {
+		var str = "";
+		if (this.auth != null && this.auth.user != null && this.auth.pass != null)
+			str += this.auth.user + ":" + this.auth.pass + "@";
+		str += this.host + ":" + this.port;
+		return str;
+	}
+}
+
+private typedef ProxyData = {
+	host:String,
+	port:Int,
+	auth:{
+		user:String, pass:String
+	}
+};
