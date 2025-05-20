@@ -1,44 +1,98 @@
-package snet.websocket;
+package snet.ws;
 
-import snet.Net.NetHost;
 #if sys
 import haxe.io.Bytes;
 import sys.net.Socket;
+import snet.Net;
+import snet.ws.WebSocket;
 
 using StringTools;
 
-class WebSocketHost extends NetHost<Message, WebSocketClient> {
-	@async extern overload inline function send(text:String):Void {
-		for (client in clients)
-			client.send(text);
+class WebSocketHost {
+	var socket:Socket;
+
+	public var isClosed(default, null):Bool = true;
+
+	public var local(default, null):HostInfo;
+	public var remote(default, null):HostInfo;
+
+	public var clients:Array<WebSocketClient> = [];
+	public var limit(default, null):Int;
+
+	public var onstart:() -> Void = () -> {};
+	public var onclose:() -> Void = () -> {};
+	public var onerror:(message:String) -> Void = _ -> {};
+
+	public var onClientOpen:(connection:WebSocketClient) -> Void = _ -> {};
+	public var onClientClose:(connection:WebSocketClient) -> Void = _ -> {};
+	public var onClientMessage:(connection:WebSocketClient, message:Message) -> Void = (_, _) -> {};
+
+	public function new(host:String, port:Int, immediateStart:Bool = true, limit:Int = 10) {
+		super(host, port, false);
+		local = remote;
+		remote = null;
+		this.limit = limit;
+		if (immediateStart)
+			start();
 	}
 
-	@async extern overload override inline function send(data:Bytes):Void {
-		for (client in clients)
-			client.send(data);
-	}
+	public function start():Void {
+		if (!isClosed)
+			onerror("Socket is not closed");
+		else {
+			socket = new Socket();
+			try {
+				socket.setBlocking(true);
+				socket.bind(new sys.net.Host(local.host), local.port);
+				socket.listen(limit);
+				isClosed = false;
 
-	@async extern overload inline function broadcast(text:String, ?exclude:Array<WebSocketClient>):Void {
-		if (isClosed) {
-			onerror("Host is closed");
-			return;
+				onstart();
+				process();
+			} catch (e) {
+				if (onerror != null)
+					onerror('Failed to start server on $local: ${e.message}');
+				socket.close();
+				return;
+			}
 		}
-		for (client in clients)
-			if (!exclude.contains(client))
-				client.send(text);
 	}
 
-	@async extern overload override inline function broadcast(data:Bytes, ?exclude:Array<WebSocketClient>):Void {
-		if (isClosed) {
-			onerror("Host is closed");
-			return;
+	public function broadcast(message:Message, ?exclude:Array<HostInfo>):Void {
+		function ex(info:HostInfo) {
+			for (i in exclude)
+				if (i.host == info.host && i.port == info.port)
+					return true;
+			return false;
 		}
-		for (client in clients)
-			if (!exclude.contains(client))
-				client.send(data);
+
+		if (isClosed)
+			onerror("Host is closed");
+		else {
+			exclude = exclude ?? [];
+			for (client in clients)
+				if (!ex(client.remote))
+					client.send(message);
+		}
 	}
 
-	@async function handleClient(socket:Socket):Void {
+	function process():Void {
+		while (!isClosed)
+			if (!tick())
+				break;
+		try {
+			for (connection in clients)
+				closeClient(connection);
+			if (onclose != null)
+				onclose();
+			isClosed = true;
+			socket.close();
+		} catch (e)
+			if (onerror != null)
+				onerror('Failed to close host: ${e.message}');
+	}
+
+	function handleClient(socket:Socket):Void {
 		try {
 			var peer = socket.peer();
 
@@ -84,10 +138,16 @@ class WebSocketHost extends NetHost<Message, WebSocketClient> {
 			if (onClientOpen != null)
 				onClientOpen(client);
 
-			@await client.process();
+			client.process();
 		} catch (e) {
 			onerror("WebSocket handleClient onerror: " + e.message);
 		}
+	}
+
+	function closeClient(client:C) {
+		clients.remove(client);
+		onClientClose(client);
+		client.close();
 	}
 
 	static function extractWebSocketKey(request:String):String {

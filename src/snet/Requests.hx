@@ -34,7 +34,7 @@ class Requests {
 	public static function delete(url:String, ?req:Request, timeout:Float = 10)
 		return request(url, req, "DELETE", timeout);
 
-	@async public static function request(url:String, ?sock:Socket, ?req:Request, ?method:String, timeout:Float = 10, noShutdown:Bool = false):Response {
+	public static function request(url:String, ?sock:Socket, ?req:Request, ?method:String, timeout:Float = 10, noShutdown:Bool = false):Response {
 		var http = new Http(url);
 		http.cnxTimeout = timeout;
 		http.noShutdown = noShutdown;

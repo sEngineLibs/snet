@@ -3,70 +3,50 @@ package snet.ws;
 #if sys
 import sys.net.Socket;
 import haxe.io.Bytes;
+import haxe.io.BytesBuffer;
 
 using snet.ws.WebSocket;
 
-enum abstract BinaryType(String) {
-	var BLOB = "blob";
-	var ARRAYBUFFER = "arraybuffer";
-}
-
-enum abstract OpCode(Int) from Int to Int {
-	var Continuation = 0x0;
-	var Text = 0x1;
-	var Binary = 0x2;
-	var Close = 0x8;
-	var Ping = 0x9;
-	var Pong = 0xA;
-}
-
-enum Message {
-	Text(text:String);
-	Binary(data:Bytes);
-}
-
-class WebSocketError extends haxe.Exception {}
-
 class WebSocket {
 	public static function writeFrame(data:Bytes, opcode:OpCode, isMasked:Bool, isFinal:Bool):Bytes {
-		var out = new Buffer();
 		var mask = Bytes.alloc(4);
 		for (i in 0...4)
 			mask.set(i, Std.random(256));
 		var sizeMask = isMasked ? 0x80 : 0x00;
 
-		out.writeByte((isFinal ? 0x80 : 0x00) | opcode);
+		var out = new BytesBuffer();
+		out.addByte((isFinal ? 0x80 : 0x00) | opcode);
 
 		var len = data.length;
 		if (len < 126) {
-			out.writeByte(len | sizeMask);
+			out.addByte(len | sizeMask);
 		} else if (len <= 0xFFFF) {
-			out.writeByte(126 | sizeMask);
-			out.writeByte(len >>> 8);
-			out.writeByte(len & 0xFF);
+			out.addByte(126 | sizeMask);
+			out.addByte(len >>> 8);
+			out.addByte(len & 0xFF);
 		} else {
-			out.writeByte(127 | sizeMask);
+			out.addByte(127 | sizeMask);
 			// no UInt64 in haxe so 0 + 32 bit
-			out.writeByte(0);
-			out.writeByte(0);
-			out.writeByte(0);
-			out.writeByte(0);
-			out.writeByte((len >>> 24) & 0xFF);
-			out.writeByte((len >>> 16) & 0xFF);
-			out.writeByte((len >>> 8) & 0xFF);
-			out.writeByte(len & 0xFF);
+			out.addByte(0);
+			out.addByte(0);
+			out.addByte(0);
+			out.addByte(0);
+			out.addByte((len >>> 24) & 0xFF);
+			out.addByte((len >>> 16) & 0xFF);
+			out.addByte((len >>> 8) & 0xFF);
+			out.addByte(len & 0xFF);
 		}
 
 		if (isMasked) {
-			out.writeBytes(mask);
+			out.addBytes(mask, out.length, mask.length);
 			var payload = Bytes.alloc(len);
 			for (i in 0...len)
 				payload.set(i, data.get(i) ^ mask.get(i % 4));
-			out.writeBytes(payload);
+			out.addBytes(payload, out.length, mask.length);
 		} else
-			out.writeBytes(data);
+			out.addBytes(data, out.length, mask.length);
 
-		return out.readAllAvailableBytes();
+		return out.getBytes();
 	}
 
 	public static function readFrame(bytes:Bytes):{opcode:OpCode, isFinal:Bool, data:Bytes} {
@@ -115,9 +95,47 @@ class WebSocket {
 		};
 	}
 
-	@async public static function sendFrame(socket:Socket, data:Bytes, opcode:OpCode):Void {
+	public static function sendFrame(socket:Socket, data:Bytes, opcode:OpCode):Void {
 		socket.output.write(WebSocket.writeFrame(data, opcode, true, true));
 		socket.output.flush();
+	}
+}
+
+enum abstract BinaryType(String) {
+	var BLOB = "blob";
+	var ARRAYBUFFER = "arraybuffer";
+}
+
+enum abstract OpCode(Int) from Int to Int {
+	var Continuation = 0x0;
+	var Text = 0x1;
+	var Binary = 0x2;
+	var Close = 0x8;
+	var Ping = 0x9;
+	var Pong = 0xA;
+}
+
+enum Message {
+	Text(text:String);
+	Binary(data:Bytes);
+}
+
+@:forward.new
+@:forward(host, port)
+abstract HostInfo(HostInfoData) {
+	@:to
+	public inline function toString():String {
+		return '${this.host}:${this.port}';
+	}
+}
+
+class HostInfoData {
+	public var host:String;
+	public var port:Int;
+
+	public inline function new(host:String, port:Int) {
+		this.host = host;
+		this.port = port;
 	}
 }
 #end
