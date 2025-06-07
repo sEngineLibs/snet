@@ -1,4 +1,3 @@
--L asys
 -L sasync
 -L ssignals
 -cp src

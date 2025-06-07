@@ -1,8 +1,6 @@
 package;
 
-import haxe.io.Bytes;
-import snet.tcp.TCPClient;
-import snet.tcp.TCPServer;
+import snet.http.HttpServer;
 
 class Tests {
 	static function main() {
@@ -10,24 +8,21 @@ class Tests {
 	}
 
 	@async static function run() {
-		var server = new TCPServer("localhost", 5050, 10, false, false);
+		var server = new HttpServer("localhost", 8080, 10, false, false);
 		server.onError(e -> trace(e));
 		server.onOpened(() -> trace("server opened"));
-		server.onClientOpened(c -> c.onMessage(m -> trace(m.toString())));
-		server.onClientClosed(c -> {
-			c.message.clear();
-			trace("client disconnected");
+		server.onClientOpened(c -> c.onMessage(m -> trace(m)));
+		server.onRequest(req -> {
+			var html = '<!DOCTYPE html><html><head><title>Hi</title></head><body><h1>Hello, world!</h1></body></html>';
+			server.response({
+				status: 200,
+				headers: [
+					"Content-Type" => "text/html; charset=utf-8",
+					"Content-Length" => Std.string(html.length)
+				],
+				data: html
+			});
 		});
-
 		@await server.open();
-
-		var client = new TCPClient("localhost", 5050);
-		client.onError(e -> trace(e));
-		client.onOpened(() -> {
-			client.send(Bytes.ofString('hello'));
-		});
-
-		@await client.send(Bytes.ofString('bye'));
-		@await client.close();
 	}
 }

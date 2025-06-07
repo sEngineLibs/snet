@@ -2,6 +2,9 @@ package snet.tcp;
 
 import haxe.io.Bytes;
 
+#if !macro
+@:build(ssignals.Signals.build())
+#end
 class TCPClient extends snet.internal.Client {
 	@:signal function message(data:Bytes);
 

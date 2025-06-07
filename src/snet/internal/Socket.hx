@@ -10,7 +10,7 @@ import haxe.io.BytesBuffer;
 import sasync.Future;
 
 typedef SysSocket = #if nodejs js.node.net.Socket #elseif php php.net.Socket #else sys.net.Socket #end;
-typedef SysSecureSocket = #if java java.net.SslSocket #elseif python python.net.SslSocket; #elseif php php.net.SslSocket #else sys.ssl.Socket #end;
+typedef SysSecureSocket = #if java java.net.SslSocket #elseif python python.net.SslSocket #elseif php php.net.SslSocket #else sys.ssl.Socket #end;
 
 @:forward(input, output, custom, setTimeout, setFastSend)
 abstract Socket(SysSocket) from SysSocket to SysSocket {
@@ -40,7 +40,10 @@ abstract Socket(SysSocket) from SysSocket to SysSocket {
 					resolve(f());
 				} catch (e)
 					reject(e);
-				pool.push(events);
+				if (pool.length == 0)
+					pool.push(events);
+				else
+					events.runPromised(() -> {});
 			});
 		});
 	}
@@ -101,27 +104,22 @@ abstract Socket(SysSocket) from SysSocket to SysSocket {
 		return runInBackground(() -> this.waitForRead());
 	}
 
-	public function receive(bufSize:Int = 1024, timeout:Float = 0.1) {
-		return new Future<Bytes>((resolve, reject) -> {
-			var data = new BytesBuffer();
-			Socket.select([this], [], [], timeout).handle(list -> {
-				if (list.read.length > 0) {
-					var buf = Bytes.alloc(bufSize);
-					while (true) {
-						var len = this.input.readBytes(buf, 0, bufSize);
-						if (len > 0) {
-							data.addBytes(buf, 0, len);
-							if (len < bufSize)
-								break;
-						} else {
-							resolve(null);
-							break;
-						}
-					}
-				}
-				resolve(data.getBytes());
-			});
-		});
+	@async public function receive(bufSize:Int = 1024, timeout:Float = 0.1):Null<Bytes> {
+		var data = new BytesBuffer();
+		var list = @await Socket.select([this], [], [], timeout);
+		if (list.read.length > 0) {
+			var buf = Bytes.alloc(bufSize);
+			while (true) {
+				var len = this.input.readBytes(buf, 0, bufSize);
+				if (len > 0) {
+					data.addBytes(buf, 0, len);
+					if (len < bufSize)
+						break;
+				} else
+					return null;
+			}
+		}
+		return data.getBytes();
 	}
 
 	function get_host() {

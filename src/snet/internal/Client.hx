@@ -7,7 +7,6 @@ class ClientError extends Exception {}
 
 #if !macro
 @:build(ssignals.Signals.build())
-@:autoBuild(ssignals.Signals.build())
 #end
 abstract class Client {
 	var socket:Socket;

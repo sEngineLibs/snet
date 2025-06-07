@@ -1,23 +1,23 @@
 package snet.internal;
 
-import snet.internal.Socket.SysSocket;
-import sys.thread.Thread;
 import haxe.Exception;
 import haxe.Constraints;
 import haxe.io.Bytes;
 import sasync.Async;
-import sasync.Future;
 
 class ServerError extends Exception {}
 private typedef ClientConstructor = (String, Int, Bool, Bool) -> Void;
 
+#if !macro
+@:build(ssignals.Signals.build())
+#end
 @:generic
 abstract class Server<T:Constructible<ClientConstructor> & Client> extends Client {
 	public var limit(default, null):Int;
 	public var clients(default, null):Array<T> = [];
 
 	public function new(host:String, port:Int, limit:Int = 10, secure:Bool = false, open:Bool = true) {
-		super(null, null, secure, false);
+		super(host, port, secure, false);
 		local = new HostInfo(host, port);
 		this.limit = limit;
 		if (open)
@@ -29,6 +29,10 @@ abstract class Server<T:Constructible<ClientConstructor> & Client> extends Clien
 	@:signal function clientClosed(client:T):Void;
 
 	@async abstract function handleClient(socket:Socket):Bool;
+
+	@async function receive(data):Void {}
+
+	@async function connectClient():Void {}
 
 	@async override function connect():Void {
 		throw new ServerError("Can't connect server");
