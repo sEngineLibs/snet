@@ -1,0 +1,27 @@
+{
+    "name": "snet",
+    "url": "https://github.com/sEngineLibs/snet",
+    "license": "Apache",
+    "tags": [
+        "web",
+        "tcp",
+        "websocket",
+        "ws",
+        "wss",
+        "http",
+        "https",
+        "net",
+        "server",
+        "client",
+        "network"
+    ],
+    "version": "0.0.1",
+    "classPath": "src",
+    "description": "Library for networking in Haxe",
+    "contributors": ["smoothie"],
+    "releasenote": "First release",
+    "dependencies": {
+        "sasync": "",
+        "ssignals": ""
+    }
+}
