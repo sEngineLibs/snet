@@ -2,6 +2,7 @@ package snet.internal;
 
 import haxe.Exception;
 import haxe.io.Bytes;
+import snet.internal.Socket;
 
 class ClientError extends Exception {}
 
@@ -11,7 +12,7 @@ class ClientError extends Exception {}
 abstract class Client {
 	var socket:Socket;
 
-	public var secure(default, null):Bool;
+	public var certificate(default, null):Certificate;
 	public var isClosed(default, null):Bool = true;
 
 	/**
@@ -24,15 +25,16 @@ abstract class Client {
 	**/
 	public var remote(default, null):HostInfo;
 
+	public var isSecure(get, never):Bool;
+
 	@:signal function opened();
 
 	@:signal function closed();
 
 	@:signal function error(err:Dynamic);
 
-	public function new(host:String, port:Int, secure:Bool = false, connect:Bool = true):Void {
-		this.secure = secure;
-		socket = new Socket(secure);
+	public function new(host:String, port:Int, connect:Bool = true, ?cert:Certificate):Void {
+		this.certificate = cert;
 		remote = new HostInfo(host, port);
 		if (connect)
 			this.connect();
@@ -48,6 +50,15 @@ abstract class Client {
 		try {
 			if (!isClosed)
 				throw new ClientError("Client is already connected");
+			if (isSecure) {
+				var secureSocket = new SecureSocket();
+				secureSocket.setCA(certificate.cert);
+				if (certificate.verify)
+					secureSocket.setCertificate(certificate.cert, certificate.key);
+				secureSocket.verifyCert = certificate.verify;
+				socket = secureSocket;
+			} else
+				socket = new Socket();
 			@await socket.connect(new sys.net.Host(remote.host), remote.port);
 			local = new HostInfo(socket.host.host.toString(), socket.host.port);
 			@await connectClient();
@@ -68,10 +79,8 @@ abstract class Client {
 
 	@async public function send(data:Bytes):Void {
 		try {
-			if ((@await Socket.select([], [socket], [], 1.0)).write.length > 0) {
-				socket.output.write(data);
-				socket.output.flush();
-			}
+			socket.output.write(data);
+			socket.output.flush();
 		} catch (e)
 			error(e);
 	}
@@ -102,5 +111,9 @@ abstract class Client {
 			} catch (e)
 				error(e);
 		return false;
+	}
+
+	function get_isSecure():Bool {
+		return certificate != null;
 	}
 }

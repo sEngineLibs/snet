@@ -55,6 +55,9 @@ import snet.ws.WebSocket;
 
 using StringTools;
 
+#if !macro
+@:build(ssignals.Signals.build())
+#end
 class WebSocketClient extends Client {
 	var key:String;
 

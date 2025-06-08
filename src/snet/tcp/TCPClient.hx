@@ -9,6 +9,7 @@ class TCPClient extends snet.internal.Client {
 	@:signal function message(data:Bytes);
 
 	@async function receive(data:Bytes) {
+		trace(data.toString());
 		message(data);
 	}
 
