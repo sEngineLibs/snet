@@ -1,15 +1,15 @@
 package snet.http;
 
 import haxe.io.Bytes;
-import snet.http.Http;
-import snet.tcp.TCPClient;
+import snet.http.Requests;
 import snet.internal.Socket;
 import snet.internal.Server;
+import snet.internal.Client;
 
 #if !macro
 @:build(ssignals.Signals.build())
 #end
-class HttpServer extends Server<TCPClient> {
+class HttpServer extends Server<Client> {
 	@:signal function request(request:HttpRequest);
 
 	public function new(host:String, port:Int, limit:Int = 10, open:Bool = true, ?cert:Certificate) {
@@ -21,7 +21,7 @@ class HttpServer extends Server<TCPClient> {
 	}
 
 	@:slot(clientOpened)
-	function trackClient(client:TCPClient) {
-		client.onMessage(data -> request(data.toString()));
+	function trackClient(client:Client) {
+		client.onData(data -> request(data.toString()));
 	}
 }

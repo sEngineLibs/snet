@@ -15,7 +15,7 @@ typedef SecureCertificate = sys.ssl.Certificate;
 
 // types
 typedef Certificate = {
-	hostname:String,
+	?hostname:String,
 	cert:SecureCertificate,
 	key:SecureKey,
 	verify:Bool
@@ -25,7 +25,7 @@ typedef Socket = ASocket<SysSocket>;
 
 @:forward()
 @:forward.new
-abstract SecureSocket(ASocket<SysSecureSocket>) from ASocket<SysSecureSocket> to ASocket<SysSecureSocket> {
+abstract SecureSocket(ASocket<SysSecureSocket>) from SysSecureSocket to SysSecureSocket {
 	@:to
 	function toSocket():Socket {
 		return (this : SysSocket);
@@ -35,7 +35,7 @@ abstract SecureSocket(ASocket<SysSecureSocket>) from ASocket<SysSecureSocket> to
 		Perform the SSL handshake.
 	**/
 	public function handshake() {
-		return Background.run(this.handshake);
+		return Background.run(() -> this.handshake());
 	}
 }
 
@@ -54,11 +54,11 @@ private abstract ASocket<T:SysSocket>(T) from T to T {
 	}
 
 	public function close() {
-		return Background.run(this.close);
+		return Background.run(() -> this.close());
 	}
 
 	public function read() {
-		return Background.run(this.read);
+		return Background.run(() -> this.read());
 	}
 
 	public function write(content:String) {
@@ -78,28 +78,27 @@ private abstract ASocket<T:SysSocket>(T) from T to T {
 	}
 
 	public function accept():Future<Socket> {
-		return Background.run(this.accept);
+		return Background.run(() -> this.accept());
 	}
 
 	public function waitForRead() {
-		return Background.run(this.waitForRead);
+		return Background.run(() -> this.waitForRead());
 	}
 
 	@async public function receive(bufSize:Int = 4096, ?timeout:Float):Null<Bytes> {
 		var list = Socket.select([this], [], [], timeout);
-		if ((@await list).read.length == 0)
-			return null;
-
 		var data = new BytesBuffer();
-		var buf = Bytes.alloc(bufSize);
-		while (true) {
-			var len = this.input.readBytes(buf, 0, bufSize);
-			if (len > 0) {
-				data.addBytes(buf, 0, len);
-				if (len < bufSize)
-					break;
-			} else
-				break;
+		if ((@await list).read.length == 0) {
+			var buf = Bytes.alloc(bufSize);
+			while (true) {
+				var len = this.input.readBytes(buf, 0, bufSize);
+				if (len > 0) {
+					data.addBytes(buf, 0, len);
+					if (len < bufSize)
+						break;
+				} else
+					throw "Connection closed by peer";
+			}
 		}
 		return data.getBytes();
 	}

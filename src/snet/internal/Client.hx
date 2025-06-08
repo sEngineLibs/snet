@@ -9,7 +9,7 @@ class ClientError extends Exception {}
 #if !macro
 @:build(ssignals.Signals.build())
 #end
-abstract class Client {
+class Client {
 	var socket:Socket;
 
 	public var certificate(default, null):Certificate;
@@ -31,7 +31,7 @@ abstract class Client {
 
 	@:signal function closed();
 
-	@:signal function error(err:Dynamic);
+	@:signal function data(data:Bytes);
 
 	public function new(host:String, port:Int, connect:Bool = true, ?cert:Certificate):Void {
 		this.certificate = cert;
@@ -40,49 +40,59 @@ abstract class Client {
 			this.connect();
 	}
 
-	@async abstract function connectClient():Void;
+	@async function connectClient():Void {}
 
-	@async abstract function closeClient():Void;
-
-	@async abstract function receive(data:Bytes):Void;
+	@async function closeClient():Void {}
 
 	@async public function connect():Void {
+		if (!isClosed)
+			throw new ClientError("Client is already connected");
+		var secureSocket:SecureSocket;
+		if (isSecure) {
+			secureSocket = new SecureSocket();
+			secureSocket.setCA(certificate.cert);
+			if (certificate.verify)
+				secureSocket.setCertificate(certificate.cert, certificate.key);
+			secureSocket.verifyCert = certificate.verify;
+			socket = secureSocket;
+		} else
+			socket = new Socket();
 		try {
-			if (!isClosed)
-				throw new ClientError("Client is already connected");
-			if (isSecure) {
-				var secureSocket = new SecureSocket();
-				secureSocket.setCA(certificate.cert);
-				if (certificate.verify)
-					secureSocket.setCertificate(certificate.cert, certificate.key);
-				secureSocket.verifyCert = certificate.verify;
-				socket = secureSocket;
-			} else
-				socket = new Socket();
 			@await socket.connect(new sys.net.Host(remote.host), remote.port);
+			if (isSecure)
+				secureSocket.handshake();
 			local = new HostInfo(socket.host.host.toString(), socket.host.port);
 			@await connectClient();
 			isClosed = false;
+			log("Connected");
 			opened();
 			process();
 		} catch (e) {
-			error(e);
 			@await socket.close();
+			throw e;
 		}
 	}
 
 	@async public function close():Void {
 		if (isClosed)
-			error(new ClientError("Client is not connected"));
+			throw new ClientError("Client is not connected");
 		isClosed = true;
 	}
 
 	@async public function send(data:Bytes):Void {
+		if (isClosed)
+			throw new ClientError("Client is not connected");
 		try {
-			socket.output.write(data);
-			socket.output.flush();
-		} catch (e)
-			error(e);
+			if ((@await Socket.select([], [socket], [])).write.length > 0) {
+				log('Sending ${data.length} bytes of data');
+				socket.output.write(data);
+				socket.output.flush();
+			} else
+				throw new ClientError("Client is not available for writing");
+		} catch (e) {
+			log('Failed to send data: $e');
+			throw e;
+		}
 	}
 
 	@async function process():Void {
@@ -90,27 +100,32 @@ abstract class Client {
 			@await process();
 		else {
 			isClosed = true;
-			try {
-				@await closeClient();
-				closed();
-			} catch (e)
-				error(e);
+			@await closeClient();
 			@await socket.close();
+			log("Closed");
+			closed();
 		}
 	}
 
 	@async function tick():Bool {
-		if (!isClosed)
+		if (!isClosed) {
 			try {
 				var data = @await socket.receive();
 				if (data != null) {
-					if (data.length > 0)
-						receive(data);
+					if (data.length > 0) {
+						log('Received ${data.length} bytes of data');
+						this.data(data);
+					}
 					return true;
 				}
 			} catch (e)
-				error(e);
+				log('Failed to tick: $e');
+		}
 		return false;
+	}
+
+	function log(msg:String) {
+		slog.Log.debug('CLIENT [$local - $remote] | $msg');
 	}
 
 	function get_isSecure():Bool {

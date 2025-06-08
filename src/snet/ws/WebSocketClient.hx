@@ -1,5 +1,6 @@
 package snet.ws;
 
+import snet.internal.Socket.Certificate;
 #if js
 @:forward()
 @:forward.new
@@ -62,18 +63,6 @@ class WebSocketClient extends Client {
 	var key:String;
 
 	@:signal function message(msg:Message);
-
-	public function new(host:String, port:Int, secure:Bool = false, connect:Bool = true):Void {
-		if (secure)
-			#if (java || cs)
-			throw new WebSocketError("Secure sockets are not supported on this platform");
-			#else
-			port = 443;
-			#end
-		else
-			port = 80;
-		super(host, port, secure, connect);
-	}
 
 	overload extern inline function send(message:Message) {
 		return switch message {

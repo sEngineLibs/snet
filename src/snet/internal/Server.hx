@@ -29,35 +29,32 @@ abstract class Server<T:Constructible<ClientConstructor> & Client> extends Clien
 
 	@:signal function clientClosed(client:T):Void;
 
-	@async function receive(data):Void {}
-
-	@async function connectClient():Void {}
-
 	@async override function connect():Void {
 		throw new ServerError("Can't connect server");
 	}
 
 	@async public function open():Void {
+		if (!isClosed)
+			throw new ServerError("Server is already open");
+		if (isSecure) {
+			var secureSocket = new SecureSocket();
+			secureSocket.setCA(certificate.cert);
+			secureSocket.setCertificate(certificate.cert, certificate.key);
+			secureSocket.setHostname(certificate.hostname);
+			secureSocket.verifyCert = certificate.verify;
+			socket = secureSocket;
+		} else
+			socket = new Socket();
 		try {
-			if (!isClosed)
-				throw new ServerError("Server is already open");
-			if (isSecure) {
-				var secureSocket = new SecureSocket();
-				secureSocket.setCA(certificate.cert);
-				secureSocket.setCertificate(certificate.cert, certificate.key);
-				secureSocket.setHostname(certificate.hostname);
-				secureSocket.verifyCert = certificate.verify;
-				socket = secureSocket;
-			} else
-				socket = new Socket();
 			@await socket.bind(new sys.net.Host(local.host), local.port);
 			@await socket.listen(limit);
 			isClosed = false;
+			log("Opened");
 			opened();
 			process();
 		} catch (e) {
-			socket.close();
-			error(e);
+			@await socket.close();
+			throw e;
 		}
 	}
 
@@ -67,22 +64,20 @@ abstract class Server<T:Constructible<ClientConstructor> & Client> extends Clien
 
 	@async public function broadcast(data:Bytes, ?exclude:Array<T>):Void {
 		if (isClosed)
-			error(new ServerError("Host is not open"));
-		else {
-			if (exclude != null && exclude.length > 0)
-				@await Async.gather([
-					for (client in clients)
-						if (!exclude.contains(client)) client.send(data)
-				]);
-			else
-				@await Async.gather([
-					for (client in clients)
-						client.send(data)
-				]);
-		}
+			throw new ServerError("Server is not open");
+		if (exclude != null && exclude.length > 0)
+			@await Async.gather([
+				for (client in clients)
+					if (!exclude.contains(client)) client.send(data)
+			]);
+		else
+			@await Async.gather([
+				for (client in clients)
+					client.send(data)
+			]);
 	}
 
-	@async function closeClient():Void {
+	@async override function closeClient() {
 		@await Async.gather([
 			for (client in clients)
 				closeServerClient(client)
@@ -90,13 +85,13 @@ abstract class Server<T:Constructible<ClientConstructor> & Client> extends Clien
 	}
 
 	@async override function tick() {
-		var socket:Socket = @await socket.accept();
-		if (socket != null) {
-			if (@await handleClient(socket)) {
-				var peer = socket.peer;
-				var host = socket.host;
+		var conn = @await socket.accept();
+		if (conn != null) {
+			if (@await handleClient(conn)) {
+				var peer = conn.peer;
+				var host = conn.host;
 				var client = new T(null, null, false, certificate);
-				client.socket = socket;
+				client.socket = conn;
 				client.remote = new HostInfo(peer.host.toString(), peer.port);
 				client.local = new HostInfo(host.host.toString(), host.port);
 				client.isClosed = false;
@@ -115,12 +110,7 @@ abstract class Server<T:Constructible<ClientConstructor> & Client> extends Clien
 
 	@async function handleClient(socket:Socket):Bool {
 		if (isSecure && certificate.verify)
-			try {
-				@await cast(socket, SecureSocket).handshake();
-			} catch (e) {
-				error(e);
-				return false;
-			}
+			@await cast(socket, SecureSocket).handshake();
 		return true;
 	}
 
@@ -128,5 +118,9 @@ abstract class Server<T:Constructible<ClientConstructor> & Client> extends Clien
 		clients.remove(client);
 		clientClosed(client);
 		client.close();
+	}
+
+	override function log(msg:String) {
+		slog.Log.debug('SERVER $local | $msg');
 	}
 }

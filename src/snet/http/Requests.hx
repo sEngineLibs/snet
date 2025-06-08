@@ -1,15 +1,97 @@
 package snet.http;
 
 import haxe.io.Bytes;
+import sasync.Async;
+import sasync.Future;
+import snet.internal.Socket;
+import snet.internal.Client;
 
 using StringTools;
-using snet.http.Http.MapExt;
+using snet.http.Requests.MapExt;
 
 class MapExt {
 	public static function isEmpty<L, R>(x:Map<L, R>)
 		return [for (k in x.keys()) k].length == 0;
 }
 
+class HttpError extends haxe.Exception {}
+
+class Requests {
+	@async public static function request(url:String, ?request:HttpRequest, timeout:Float = 10.0, ?cert:Certificate) {
+		var info = parseURL(url);
+		if (info == null)
+			throw new HttpError('Invalid URL: $url');
+
+		if (info.isSecure)
+			cert = cert ?? {
+				cert: SecureCertificate.loadDefaults(),
+				key: null,
+				verify: false
+			}
+		else
+			cert = null;
+
+		var client = new Client(info.host, info.port, false, cert);
+		@await client.connect();
+		return @await customRequest(client, request, timeout);
+	}
+
+	public static function customRequest(client:Client, ?request:HttpRequest, timeout:Float = 10.0, close:Bool = true) {
+		request = request ?? {};
+
+		if (!request.headers.exists("Host"))
+			request.headers.set("Host", client.remote);
+
+		if (request.data != null && !request.headers.exists("Content-Length"))
+			request.headers.set("Content-Length", Std.string(request.data.length));
+
+		client.send(Bytes.ofString(request));
+
+		return new Future((resolve, reject) -> {
+			var responsed = false;
+			function response(resp:HttpResponse) {
+				if (close && !client.isClosed)
+					client.close();
+				responsed = true;
+				resolve(resp);
+			}
+			client.onData(data -> response(data.toString()));
+			if (timeout != null && timeout > 0)
+				Async.sleep(timeout).handle(_ -> {
+					if (!responsed)
+						response({
+							status: 408,
+							statusText: "Request Timeout"
+						});
+				});
+		});
+	}
+
+	static function parseURL(url:String) {
+		var regex = new EReg("^(https?)://([^:/]+)(:(\\d+))?", "i");
+		if (!regex.match(url))
+			return null;
+
+		var isSecure = false;
+		var host = regex.matched(2);
+		var portStr = regex.matched(4);
+		var port = {
+			if (regex.matched(1).toLowerCase() == "https") {
+				isSecure = true;
+				443;
+			} else
+				portStr != null ? Std.parseInt(portStr) : 80;
+		}
+
+		return {
+			host: host,
+			port: port,
+			isSecure: isSecure
+		}
+	}
+}
+
+@:forward()
 abstract HttpRequest(HttpRequestData) from HttpRequestData {
 	@:from
 	public static function fromString(raw:String):HttpRequest {
@@ -165,6 +247,7 @@ abstract HttpRequest(HttpRequestData) from HttpRequestData {
 	}
 }
 
+@:forward()
 abstract HttpResponse(HttpResponseData) from HttpResponseData {
 	@:from
 	public static function fromString(raw:String):HttpResponse {
@@ -285,23 +368,23 @@ abstract HttpResponse(HttpResponseData) from HttpResponseData {
 
 @:structInit
 private class HttpRequestData {
-	public var path:String;
-	public var method:String = "POST";
-	public var version:String = null;
-	public var headers:Map<String, String> = null;
+	public var path:String = "/";
+	public var method:String = "GET";
+	public var version:String = "HTTP/1.1";
+	public var headers:Map<String, String> = [];
 	public var data:String = null;
-	public var params:Map<String, String> = null;
-	public var cookies:Map<String, String> = null;
-	public var files:Map<String, Bytes> = null;
+	public var params:Map<String, String> = [];
+	public var cookies:Map<String, String> = [];
+	public var files:Map<String, Bytes> = [];
 }
 
 @:structInit
 private class HttpResponseData {
-	public var status:Int;
-	public var statusText:String = null;
+	public var status:Int = 200;
+	public var statusText:String = "OK";
 	public var version:String = null;
-	public var headers:Map<String, String> = null;
+	public var headers:Map<String, String> = [];
 	public var data:String = null;
 	public var error:String = null;
-	public var cookies:Map<String, String> = null;
+	public var cookies:Map<String, String> = [];
 }
