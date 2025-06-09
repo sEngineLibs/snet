@@ -4,10 +4,10 @@ package snet.internal;
 import sys.thread.Thread;
 import sys.thread.EventLoop;
 #end
-import sasync.Future;
+import sasync.Lazy;
 
 class Background {
-	public static function run<T>(f:Void->T):Future<T> {
+	public static function run<T>(f:Void->T):Lazy<T> {
 		#if (sys && target.threaded)
 		static var pool:Array<EventLoop> = [];
 		static var promised:Bool = false;
@@ -15,7 +15,7 @@ class Background {
 		if (!promised)
 			Thread.current().events.promise();
 
-		return new Future<T>((resolve, reject) -> {
+		return new Lazy<T>((resolve, reject) -> {
 			if (pool.length == 0) {
 				var lock = new sys.thread.Lock();
 				Thread.createWithEventLoop(() -> {
@@ -40,7 +40,7 @@ class Background {
 			});
 		});
 		#else
-		return new Future((resolve, _) -> resolve(f()));
+		return new Lazy((resolve, _) -> resolve(f()));
 		#end
 	}
 }

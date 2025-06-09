@@ -47,7 +47,7 @@ class Client {
 	@async public function connect():Void {
 		if (!isClosed)
 			throw new ClientError("Client is already connected");
-		var secureSocket:SecureSocket;
+		var secureSocket:SecureSocket = null;
 		if (isSecure) {
 			secureSocket = new SecureSocket();
 			secureSocket.setCA(certificate.cert);
@@ -59,7 +59,7 @@ class Client {
 			socket = new Socket();
 		try {
 			@await socket.connect(new sys.net.Host(remote.host), remote.port);
-			if (isSecure)
+			if (isSecure && secureSocket != null)
 				secureSocket.handshake();
 			local = new HostInfo(socket.host.host.toString(), socket.host.port);
 			@await connectClient();

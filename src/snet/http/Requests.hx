@@ -1,8 +1,8 @@
 package snet.http;
 
 import haxe.io.Bytes;
+import sasync.Lazy;
 import sasync.Async;
-import sasync.Future;
 import snet.internal.Socket;
 import snet.internal.Client;
 
@@ -45,9 +45,7 @@ class Requests {
 		if (request.data != null && !request.headers.exists("Content-Length"))
 			request.headers.set("Content-Length", Std.string(request.data.length));
 
-		client.send(Bytes.ofString(request));
-
-		return new Future((resolve, reject) -> {
+		return new Lazy((resolve, reject) -> {
 			var responsed = false;
 			function response(resp:HttpResponse) {
 				if (close && !client.isClosed)
@@ -56,6 +54,7 @@ class Requests {
 				resolve(resp);
 			}
 			client.onData(data -> response(data.toString()));
+			client.send(Bytes.ofString(request));
 			if (timeout != null && timeout > 0)
 				Async.sleep(timeout).handle(_ -> {
 					if (!responsed)

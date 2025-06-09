@@ -5,7 +5,7 @@ import sys.net.Host;
 #end
 import haxe.io.Bytes;
 import haxe.io.BytesBuffer;
-import sasync.Future;
+import sasync.Lazy;
 
 // imports
 typedef SysSocket = #if nodejs js.node.net.Socket #elseif php php.net.Socket #else sys.net.Socket #end;
@@ -77,7 +77,7 @@ private abstract ASocket<T:SysSocket>(T) from T to T {
 		return Background.run(() -> this.listen(connections));
 	}
 
-	public function accept():Future<Socket> {
+	public function accept():Lazy<Socket> {
 		return Background.run(() -> this.accept());
 	}
 
@@ -88,7 +88,7 @@ private abstract ASocket<T:SysSocket>(T) from T to T {
 	@async public function receive(bufSize:Int = 4096, ?timeout:Float):Null<Bytes> {
 		var list = Socket.select([this], [], [], timeout);
 		var data = new BytesBuffer();
-		if ((@await list).read.length == 0) {
+		if ((@await list).read.length > 0) {
 			var buf = Bytes.alloc(bufSize);
 			while (true) {
 				var len = this.input.readBytes(buf, 0, bufSize);
