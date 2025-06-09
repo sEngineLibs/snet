@@ -7,20 +7,23 @@ import sasync.Async;
 import snet.internal.Socket;
 
 class ServerError extends Exception {}
-private typedef ClientConstructor = (String, Int, Bool, Certificate) -> Void;
+private typedef ClientConstructor = (String, Bool, Certificate) -> Void;
 
 #if !macro
 @:build(ssignals.Signals.build())
 #end
 @:generic
-abstract class Server<T:Constructible<ClientConstructor> & Client> extends Client {
+class Server<T:Constructible<ClientConstructor> & Client> extends Client {
 	public var limit(default, null):Int;
 	public var clients(default, null):Array<T> = [];
 
-	public function new(host:String, port:Int, limit:Int = 10, open:Bool = true, ?cert:Certificate) {
-		super(host, port, false, cert);
-		local = new HostInfo(host, port);
+	public function new(uri:String, limit:Int = 10, open:Bool = true, ?cert:Certificate) {
+		super(uri, false, cert);
+
+		local = remote;
+		remote = null;
 		this.limit = limit;
+
 		if (open)
 			this.open();
 	}
@@ -90,7 +93,7 @@ abstract class Server<T:Constructible<ClientConstructor> & Client> extends Clien
 			if (@await handleClient(conn)) {
 				var peer = conn.peer;
 				var host = conn.host;
-				var client = new T(null, null, false, certificate);
+				var client = new T(local, false, certificate);
 				client.socket = conn;
 				client.remote = new HostInfo(peer.host.toString(), peer.port);
 				client.local = new HostInfo(host.host.toString(), host.port);

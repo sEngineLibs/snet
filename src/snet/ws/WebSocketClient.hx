@@ -1,6 +1,5 @@
 package snet.ws;
 
-import snet.internal.Socket.Certificate;
 #if js
 @:forward()
 @:forward.new
@@ -50,7 +49,7 @@ extern abstract WebSocketClient(js.html.WebSocket) {
 import haxe.io.Bytes;
 import haxe.crypto.Sha1;
 import haxe.crypto.Base64;
-import snet.http.Http;
+import snet.http.Requests;
 import snet.internal.Client;
 import snet.ws.WebSocket;
 
@@ -85,14 +84,14 @@ class WebSocketClient extends Client {
 		return WebSocket.sendFrame(socket, Bytes.ofString("ping-" + Std.string(Math.random())), Ping);
 	}
 
-	@async function connectClient() {
+	@async override function connectClient() {
 		try {
 			@await handshake();
 		} catch (e)
 			throw new WebSocketError('Handshake failed: $e');
 	}
 
-	@async function closeClient() {
+	@async override function closeClient() {
 		@await WebSocket.sendFrame(socket, Bytes.ofString("close"), Close);
 	}
 
@@ -121,10 +120,10 @@ class WebSocketClient extends Client {
 			b.set(i, Std.random(255));
 		key = Base64.encode(b);
 
-		var resp = @await Http.request(remote, {
+		var resp = @await Requests.customRequest(this, false, {
 			headers: [
 				"Host" => remote,
-				"User-Agent" => "haxe",
+				"User-Agent" => "snet",
 				"Sec-Websocket-Key" => key,
 				"Sec-Websocket-Version" => "13",
 				"Upgrade" => "websocket",
@@ -133,7 +132,7 @@ class WebSocketClient extends Client {
 				"Cache-Control" => "no-cache",
 				"Origin" => local
 			]
-		}, "POST", 10, socket, true);
+		});
 
 		if (resp == null)
 			throw 'No response from ${remote.host}';
@@ -141,7 +140,7 @@ class WebSocketClient extends Client {
 			processHandshake(resp);
 	}
 
-	function processHandshake(resp:Response) {
+	function processHandshake(resp:HttpResponse) {
 		if (resp.error != null)
 			throw resp.error;
 		else {

@@ -8,6 +8,22 @@ import snet.internal.Socket;
 
 using snet.ws.WebSocket;
 
+enum Message {
+	Text(text:String);
+	Binary(data:Bytes);
+}
+
+enum abstract OpCode(Int) from Int to Int {
+	var Continuation = 0x0;
+	var Text = 0x1;
+	var Binary = 0x2;
+	var Close = 0x8;
+	var Ping = 0x9;
+	var Pong = 0xA;
+}
+
+class WebSocketError extends Exception {}
+
 class WebSocket {
 	public static function writeFrame(data:Bytes, opcode:OpCode, isMasked:Bool, isFinal:Bool):Bytes {
 		var mask = Bytes.alloc(4);
@@ -100,26 +116,5 @@ class WebSocket {
 		socket.output.write(WebSocket.writeFrame(data, opcode, true, true));
 		socket.output.flush();
 	}
-}
-
-class WebSocketError extends Exception {}
-
-enum abstract BinaryType(String) {
-	var BLOB = "blob";
-	var ARRAYBUFFER = "arraybuffer";
-}
-
-enum abstract OpCode(Int) from Int to Int {
-	var Continuation = 0x0;
-	var Text = 0x1;
-	var Binary = 0x2;
-	var Close = 0x8;
-	var Ping = 0x9;
-	var Pong = 0xA;
-}
-
-enum Message {
-	Text(text:String);
-	Binary(data:Bytes);
 }
 #end

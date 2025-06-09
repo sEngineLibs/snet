@@ -14,29 +14,17 @@ class MapExt {
 		return [for (k in x.keys()) k].length == 0;
 }
 
+typedef HttpMethod = haxe.http.HttpMethod;
 class HttpError extends haxe.Exception {}
 
 class Requests {
 	@async public static function request(url:String, ?request:HttpRequest, timeout:Float = 10.0, ?cert:Certificate) {
-		var info = parseURL(url);
-		if (info == null)
-			throw new HttpError('Invalid URL: $url');
-
-		if (info.isSecure)
-			cert = cert ?? {
-				cert: SecureCertificate.loadDefaults(),
-				key: null,
-				verify: false
-			}
-		else
-			cert = null;
-
-		var client = new Client(info.host, info.port, false, cert);
+		var client = new Client(url, cert);
 		@await client.connect();
-		return @await customRequest(client, request, timeout);
+		return @await customRequest(client, true, request, timeout, cert);
 	}
 
-	public static function customRequest(client:Client, ?request:HttpRequest, timeout:Float = 10.0, close:Bool = true) {
+	public static function customRequest(client:Client, close:Bool, ?request:HttpRequest, timeout:Float = 10.0, ?cert:Certificate) {
 		request = request ?? {};
 
 		if (!request.headers.exists("Host"))
@@ -64,29 +52,6 @@ class Requests {
 						});
 				});
 		});
-	}
-
-	static function parseURL(url:String) {
-		var regex = new EReg("^(https?)://([^:/]+)(:(\\d+))?", "i");
-		if (!regex.match(url))
-			return null;
-
-		var isSecure = false;
-		var host = regex.matched(2);
-		var portStr = regex.matched(4);
-		var port = {
-			if (regex.matched(1).toLowerCase() == "https") {
-				isSecure = true;
-				443;
-			} else
-				portStr != null ? Std.parseInt(portStr) : 80;
-		}
-
-		return {
-			host: host,
-			port: port,
-			isSecure: isSecure
-		}
 	}
 }
 
@@ -368,7 +333,7 @@ abstract HttpResponse(HttpResponseData) from HttpResponseData {
 @:structInit
 private class HttpRequestData {
 	public var path:String = "/";
-	public var method:String = "GET";
+	public var method:HttpMethod = Get;
 	public var version:String = "HTTP/1.1";
 	public var headers:Map<String, String> = [];
 	public var data:String = null;

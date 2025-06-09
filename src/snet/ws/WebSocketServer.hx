@@ -9,7 +9,7 @@ using StringTools;
 
 @:access(snet.ws.WebSocketClient)
 class WebSocketServer extends Server<WebSocketClient> {
-	@async function handleClient(socket:Socket):Bool {
+	@async override function handleClient(socket:Socket):Bool {
 		var data = @await socket.receive();
 		if (data.length == 0)
 			return false;

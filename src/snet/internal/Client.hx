@@ -1,15 +1,38 @@
 package snet.internal;
 
-import haxe.Exception;
 import haxe.io.Bytes;
 import snet.internal.Socket;
 
-class ClientError extends Exception {}
+class ClientError extends haxe.Exception {}
 
 #if !macro
 @:build(ssignals.Signals.build())
 #end
 class Client {
+	static function parseURI(uri:String) {
+		var regex = new EReg("^(?:([a-z]+)://([^:/]+)(?::(\\d+))?|([^:/]+)(?::(\\d+))?)$", "i");
+
+		if (!regex.match(uri))
+			return null;
+
+		var proto = regex.matched(1) != null ? regex.matched(1).toLowerCase() : null;
+		var host = regex.matched(2) != null ? regex.matched(2) : regex.matched(4);
+		var portStr = regex.matched(3) != null ? regex.matched(3) : regex.matched(5);
+
+		var isSecure = proto == "https" || proto == "wss";
+		if (proto == null)
+			proto = "http";
+
+		var port = portStr != null ? Std.parseInt(portStr) : isSecure ? 443 : 80;
+
+		return {
+			host: host,
+			port: port,
+			isSecure: isSecure,
+			proto: proto
+		}
+	}
+
 	var socket:Socket;
 
 	public var certificate(default, null):Certificate;
@@ -33,9 +56,23 @@ class Client {
 
 	@:signal function data(data:Bytes);
 
-	public function new(host:String, port:Int, connect:Bool = true, ?cert:Certificate):Void {
-		this.certificate = cert;
-		remote = new HostInfo(host, port);
+	public function new(uri:String, connect:Bool = true, ?cert:Certificate):Void {
+		var info = parseURI(uri);
+		if (info == null)
+			throw new ClientError('Invalid URI: $uri');
+
+		if (info.isSecure)
+			cert = cert ?? {
+				cert: SecureCertificate.loadDefaults(),
+				key: null,
+				verify: false
+			}
+		else
+			cert = null;
+
+		certificate = cert;
+		remote = new HostInfo(info.host, info.port);
+
 		if (connect)
 			this.connect();
 	}
@@ -62,8 +99,8 @@ class Client {
 			if (isSecure && secureSocket != null)
 				secureSocket.handshake();
 			local = new HostInfo(socket.host.host.toString(), socket.host.port);
-			@await connectClient();
 			isClosed = false;
+			@await connectClient();
 			log("Connected");
 			opened();
 			process();
@@ -117,7 +154,8 @@ class Client {
 						this.data(data);
 					}
 					return true;
-				}
+				} else
+					log("Connection closed by peer");
 			} catch (e)
 				log('Failed to tick: $e');
 		}

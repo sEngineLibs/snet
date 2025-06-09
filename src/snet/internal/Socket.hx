@@ -86,9 +86,9 @@ private abstract ASocket<T:SysSocket>(T) from T to T {
 	}
 
 	@async public function receive(bufSize:Int = 4096, ?timeout:Float):Null<Bytes> {
-		var list = Socket.select([this], [], [], timeout);
 		var data = new BytesBuffer();
-		if ((@await list).read.length > 0) {
+		if ((@await Socket.select([this], [], [], timeout)).read.length > 0) {
+			trace("reading");
 			var buf = Bytes.alloc(bufSize);
 			while (true) {
 				var len = this.input.readBytes(buf, 0, bufSize);
@@ -97,7 +97,7 @@ private abstract ASocket<T:SysSocket>(T) from T to T {
 					if (len < bufSize)
 						break;
 				} else
-					throw "Connection closed by peer";
+					return null;
 			}
 		}
 		return data.getBytes();

@@ -1,4 +1,4 @@
-package snet.internal;
+package snet;
 
 @:forward(host, port)
 abstract HostInfo(HostInfoData) from HostInfoData to HostInfoData {
