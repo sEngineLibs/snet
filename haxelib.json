@@ -21,7 +21,6 @@
     "contributors": ["smoothie"],
     "releasenote": "First release",
     "dependencies": {
-        "sasync": "",
         "ssignals": ""
     }
 }

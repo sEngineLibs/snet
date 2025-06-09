@@ -1,17 +1,23 @@
 package snet.internal;
 
-#if sys
 import sys.net.Host;
-#end
 import haxe.io.Bytes;
 import haxe.io.BytesBuffer;
-import sasync.Lazy;
 
 // imports
-typedef SysSocket = #if nodejs js.node.net.Socket #elseif php php.net.Socket #else sys.net.Socket #end;
-typedef SysSecureSocket = #if java java.net.SslSocket #elseif python python.net.SslSocket #elseif php php.net.SslSocket #else sys.ssl.Socket #end;
 typedef SecureKey = sys.ssl.Key;
 typedef SecureCertificate = sys.ssl.Certificate;
+
+typedef SysSocket = // native socket
+	#if nodejs snet.internal.node.Socket // nodejs
+	#elseif php php.net.Socket // php
+	#else sys.net.Socket // other sys platforms
+	#end;
+typedef SysSecureSocket = // native secure socket
+	#if python python.net.SslSocket // python
+	#elseif php php.net.SslSocket // php
+	#else sys.ssl.Socket // other sys platforms
+	#end;
 
 // types
 typedef Certificate = {
@@ -21,74 +27,67 @@ typedef Certificate = {
 	verify:Bool
 }
 
-typedef Socket = ASocket<SysSocket>;
+@:forward()
+@:forward.new
+abstract Socket(ASocket<SysSocket>) from SysSocket to SysSocket {
+	public static function select(read:Array<Socket>, write:Array<Socket>, others:Array<Socket>, ?timeout:Float) {
+		return SysSocket.select(read, write, others, timeout);
+	}
+
+	public function accept():Socket {
+		return this.accept();
+	}
+}
 
 @:forward()
 @:forward.new
 abstract SecureSocket(ASocket<SysSecureSocket>) from SysSecureSocket to SysSecureSocket {
+	public function new(?certificate:Certificate, isClient:Bool = true) {
+		this = new SysSecureSocket();
+		if (certificate != null) {
+			this.setCA(certificate.cert);
+			this.verifyCert = certificate.verify;
+			if (isClient && certificate.verify)
+				this.setCertificate(certificate.cert, certificate.key);
+			else {
+				this.setCertificate(certificate.cert, certificate.key);
+				this.setHostname(certificate.hostname);
+			}
+		}
+	}
+
 	@:to
 	function toSocket():Socket {
 		return (this : SysSocket);
 	}
 
-	/**
-		Perform the SSL handshake.
-	**/
-	public function handshake() {
-		return Background.run(() -> this.handshake());
+	public function accept():SecureSocket {
+		return this.accept();
 	}
 }
 
 @:forward()
 @:forward.new
 private abstract ASocket<T:SysSocket>(T) from T to T {
-	public static function select(read:Array<Socket>, write:Array<Socket>, others:Array<Socket>, ?timeout:Float) {
-		return Background.run(() -> SysSocket.select(read, write, others, timeout));
-	}
-
 	public var host(get, never):{host:Host, port:Int};
 	public var peer(get, never):{host:Host, port:Int};
 
-	public function connect(host:Host, port:Int) {
-		return Background.run(() -> this.connect(host, port));
+	public function connect(host:String, port:Int) {
+		this.connect(new Host(host), port);
 	}
 
-	public function close() {
-		return Background.run(() -> this.close());
+	public function send(data:Bytes, ?timeout:Float):Bool {
+		if ((Socket.select([], [this], [], timeout)).write.length > 0) {
+			this.output.write(data);
+			this.output.flush();
+			return true;
+		}
+		return false;
 	}
 
-	public function read() {
-		return Background.run(() -> this.read());
-	}
-
-	public function write(content:String) {
-		return Background.run(() -> this.write(content));
-	}
-
-	public function shutdown(read:Bool, write:Bool) {
-		return Background.run(() -> this.shutdown(read, write));
-	}
-
-	public function bind(host:Host, port:Int) {
-		return Background.run(() -> this.bind(host, port));
-	}
-
-	public function listen(connections:Int) {
-		return Background.run(() -> this.listen(connections));
-	}
-
-	public function accept():Lazy<Socket> {
-		return Background.run(() -> this.accept());
-	}
-
-	public function waitForRead() {
-		return Background.run(() -> this.waitForRead());
-	}
-
-	@async public function receive(bufSize:Int = 4096, ?timeout:Float):Null<Bytes> {
+	public function recv(bufSize:Int = 4096, ?timeout:Float):Null<Bytes> {
 		var data = new BytesBuffer();
-		if ((@await Socket.select([this], [], [], timeout)).read.length > 0) {
-			trace("reading");
+		if (Socket.select([this], [], [], timeout).read.length > 0) {
 			var buf = Bytes.alloc(bufSize);
 			while (true) {
 				var len = this.input.readBytes(buf, 0, bufSize);

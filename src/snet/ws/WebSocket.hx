@@ -4,9 +4,11 @@ package snet.ws;
 import haxe.Exception;
 import haxe.io.Bytes;
 import haxe.io.BytesBuffer;
+import haxe.crypto.Sha1;
+import haxe.crypto.Base64;
 import snet.internal.Socket;
 
-using snet.ws.WebSocket;
+using StringTools;
 
 enum Message {
 	Text(text:String);
@@ -25,6 +27,23 @@ enum abstract OpCode(Int) from Int to Int {
 class WebSocketError extends Exception {}
 
 class WebSocket {
+	public static function extractWebSocketKey(request:String):String {
+		for (line in request.split("\r\n"))
+			if (line.startsWith("Sec-WebSocket-Key:"))
+				return StringTools.trim(line.substr("Sec-WebSocket-Key:".length));
+		return null;
+	}
+
+	public static function computeWebSocketKey(key:String):String {
+		return Base64.encode(Sha1.make(Bytes.ofString(key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11')));
+	}
+
+	public static function computeWebSocketAcceptKey(key:String):String {
+		var magic = key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+		var sha1 = haxe.crypto.Sha1.make(Bytes.ofString(magic));
+		return haxe.crypto.Base64.encode(sha1);
+	}
+
 	public static function writeFrame(data:Bytes, opcode:OpCode, isMasked:Bool, isFinal:Bool):Bytes {
 		var mask = Bytes.alloc(4);
 		for (i in 0...4)
@@ -112,7 +131,7 @@ class WebSocket {
 		};
 	}
 
-	@async public static function sendFrame(socket:Socket, data:Bytes, opcode:OpCode):Void {
+	public static function sendFrame(socket:Socket, data:Bytes, opcode:OpCode):Void {
 		socket.output.write(WebSocket.writeFrame(data, opcode, true, true));
 		socket.output.flush();
 	}

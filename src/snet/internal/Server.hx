@@ -3,21 +3,18 @@ package snet.internal;
 import haxe.Exception;
 import haxe.Constraints;
 import haxe.io.Bytes;
-import sasync.Async;
+import snet.Net;
 import snet.internal.Socket;
 
 class ServerError extends Exception {}
-private typedef ClientConstructor = (String, Bool, Certificate) -> Void;
+private typedef ClientConstructor = (uri:URI, ?connect:Bool, ?process:Bool, ?certificate:Certificate) -> Void;
 
-#if !macro
-@:build(ssignals.Signals.build())
-#end
 @:generic
 class Server<T:Constructible<ClientConstructor> & Client> extends Client {
 	public var limit(default, null):Int;
 	public var clients(default, null):Array<T> = [];
 
-	public function new(uri:String, limit:Int = 10, open:Bool = true, ?cert:Certificate) {
+	public function new(uri:URI, limit:Int = 10, open:Bool = true, process:Bool = true, ?cert:Certificate) {
 		super(uri, false, cert);
 
 		local = remote;
@@ -25,99 +22,86 @@ class Server<T:Constructible<ClientConstructor> & Client> extends Client {
 		this.limit = limit;
 
 		if (open)
-			this.open();
+			this.open(process);
 	}
 
 	@:signal function clientOpened(client:T):Void;
 
 	@:signal function clientClosed(client:T):Void;
 
-	@async override function connect():Void {
+	override function connect(process:Bool = true):Void {
 		throw new ServerError("Can't connect server");
 	}
 
-	@async public function open():Void {
+	public function open(process:Bool = true):Void {
 		if (!isClosed)
 			throw new ServerError("Server is already open");
-		if (isSecure) {
-			var secureSocket = new SecureSocket();
-			secureSocket.setCA(certificate.cert);
-			secureSocket.setCertificate(certificate.cert, certificate.key);
-			secureSocket.setHostname(certificate.hostname);
-			secureSocket.verifyCert = certificate.verify;
-			socket = secureSocket;
-		} else
-			socket = new Socket();
+		socket = isSecure ? new SecureSocket(certificate) : new Socket();
 		try {
-			@await socket.bind(new sys.net.Host(local.host), local.port);
-			@await socket.listen(limit);
+			socket.bind(new sys.net.Host(local.host), local.port);
+			socket.listen(limit);
 			isClosed = false;
 			log("Opened");
 			opened();
-			process();
+			if (process)
+				this.process();
 		} catch (e) {
-			@await socket.close();
+			socket.close();
 			throw e;
 		}
 	}
 
-	@async override function send(data:Bytes) {
+	override function send(data:Bytes) {
 		broadcast(data);
 	}
 
-	@async public function broadcast(data:Bytes, ?exclude:Array<T>):Void {
+	public function broadcast(data:Bytes, ?exclude:Array<T>):Void {
 		if (isClosed)
 			throw new ServerError("Server is not open");
 		if (exclude != null && exclude.length > 0)
-			@await Async.gather([
-				for (client in clients)
-					if (!exclude.contains(client)) client.send(data)
-			]);
-		else
-			@await Async.gather([
-				for (client in clients)
-					client.send(data)
-			]);
-	}
-
-	@async override function closeClient() {
-		@await Async.gather([
 			for (client in clients)
-				closeServerClient(client)
-		]);
+				if (!exclude.contains(client))
+					client.send(data);
+				else
+					for (client in clients)
+						client.send(data);
 	}
 
-	@async override function tick() {
-		var conn = @await socket.accept();
+	override function closeClient() {
+		for (client in clients)
+			closeServerClient(client);
+	}
+
+	override function tick() {
+		var conn = socket.accept();
 		if (conn != null) {
-			if (@await handleClient(conn)) {
-				var peer = conn.peer;
-				var host = conn.host;
-				var client = new T(local, false, certificate);
-				client.socket = conn;
-				client.remote = new HostInfo(peer.host.toString(), peer.port);
-				client.local = new HostInfo(host.host.toString(), host.port);
-				client.isClosed = false;
+			var peer = conn.peer;
+			var host = conn.host;
+			var client = new T(local, false, false, certificate);
+			client.socket = conn;
+			client.remote = new HostInfo(peer.host.toString(), peer.port);
+			client.local = new HostInfo(host.host.toString(), host.port);
+			client.isClosed = false;
+			handleClient(client, () -> {
 				client.onClosed(() -> {
 					clients.remove(client);
 					clientClosed(client);
 				});
-
 				clients.push(client);
 				clientOpened(client);
 				client.process();
-			}
+			});
 		}
 		return true;
 	}
 
-	@async function handleClient(socket:Socket):Bool {
+	function handleClient(client:T, callback:Void->Void) {
 		if (isSecure && certificate.verify)
-			@await cast(socket, SecureSocket).handshake();
-		return true;
+			cast(client.socket, SecureSocket).handshake();
+		callback();
 	}
 
-	@async function closeServerClient(client:T):Void {
+	function closeServerClient(client:T):Void {
 		clients.remove(client);
 		clientClosed(client);
 		client.close();

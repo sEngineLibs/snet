@@ -1,5 +1,4 @@
 -L slog
--L sasync
 -L ssignals
 -cp src
 -cp tests

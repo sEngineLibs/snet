@@ -1,8 +1,7 @@
 package snet.http;
 
 import haxe.io.Bytes;
-import sasync.Lazy;
-import sasync.Async;
+import snet.Net;
 import snet.internal.Socket;
 import snet.internal.Client;
 
@@ -17,15 +16,12 @@ class MapExt {
 typedef HttpMethod = haxe.http.HttpMethod;
 class HttpError extends haxe.Exception {}
 
+@:access(snet.internal.Client)
 class Requests {
-	@async public static function request(url:String, ?request:HttpRequest, timeout:Float = 10.0, ?cert:Certificate) {
-		var client = new Client(url, cert);
-		@await client.connect();
-		return @await customRequest(client, true, request, timeout, cert);
-	}
+	public static var proxy:Proxy;
 
-	public static function customRequest(client:Client, close:Bool, ?request:HttpRequest, timeout:Float = 10.0, ?cert:Certificate) {
-		request = request ?? {};
+	public static function request(uri:URI, ?request:HttpRequest, timeout:Float = 10.0, ?cert:Certificate) {
+		request = request ?? request;
 
 		if (!request.headers.exists("Host"))
 			request.headers.set("Host", client.remote);
@@ -33,25 +29,36 @@ class Requests {
 		if (request.data != null && !request.headers.exists("Content-Length"))
 			request.headers.set("Content-Length", Std.string(request.data.length));
 
-		return new Lazy((resolve, reject) -> {
-			var responsed = false;
-			function response(resp:HttpResponse) {
-				if (close && !client.isClosed)
-					client.close();
-				responsed = true;
-				resolve(resp);
+		var socket:Socket;
+		if (uri.isSecure)
+			socket = new SecureSocket(cert);
+		else
+			socket = new Socket();
+
+		if (proxy != null) {
+			request.headers.set("Host", uri.host);
+			socket.connect(proxy.host, proxy.port);
+		} else
+			socket.connect(uri.host, uri.port);
+
+		return customRequest(socket, true, request, timeout);
+	}
+
+	public static function customRequest(socket:Socket, close:Bool, req:HttpRequest, timeout:Float = 10.0) {
+		client.send(Bytes.ofString(req));
+
+		var resp:HttpResponse = try {
+			client.socket.receive(timeout).toString();
+		} catch (e)
+			{
+				status: 408,
+				statusText: "Request Timeout"
 			}
-			client.onData(data -> response(data.toString()));
-			client.send(Bytes.ofString(request));
-			if (timeout != null && timeout > 0)
-				Async.sleep(timeout).handle(_ -> {
-					if (!responsed)
-						response({
-							status: 408,
-							statusText: "Request Timeout"
-						});
-				});
-		});
+
+		if (close)
+			client.close();
+
+		return resp;
 	}
 }
 

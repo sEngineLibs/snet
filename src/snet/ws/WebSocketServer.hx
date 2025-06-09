@@ -1,43 +1,38 @@
 package snet.ws;
 
+import snet.http.Requests.HttpRequest;
 #if sys
-import haxe.io.Bytes;
-import snet.internal.Socket;
 import snet.internal.Server;
 
 using StringTools;
 
 @:access(snet.ws.WebSocketClient)
 class WebSocketServer extends Server<WebSocketClient> {
-	@async override function handleClient(socket:Socket):Bool {
-		var data = @await socket.receive();
-		if (data.length == 0)
-			return false;
+	override function handleClient(client:WebSocketClient, callback:Void->Void) {
+		client.onData(d -> trace(d.toString()));
+		
+		var data = client.socket.receive();
 
-		var req = data.toString();
-		var key = extractWebSocketKey(req);
-		if (key == null)
-			return false;
+		if (data.length == 0) {
+			log('No handshake data received from ${client.remote}');
+			return;
+		}
 
-		var acceptKey = computeWebSocketAcceptKey(key);
+		var req:HttpRequest = data.toString();
+		var key = req.headers.get("Sec-WebSocket-Key");
+		if (key == null) {
+			log('No handshake key received from ${client.remote}');
+			return;
+		}
+
+		var acceptKey = WebSocket.computeWebSocketAcceptKey(key);
 		var response = "HTTP/1.1 101 Switching Protocols\r\n" + "Upgrade: websocket\r\n" + "Connection: Upgrade\r\n" + "Sec-WebSocket-Accept: " + acceptKey
 			+ "\r\n\r\n";
 
-		socket.output.writeString(response);
-		socket.output.flush();
-	}
+		client.socket.output.writeString(response);
+		client.socket.output.flush();
 
-	static function extractWebSocketKey(request:String):String {
-		for (line in request.split("\r\n"))
-			if (line.startsWith("Sec-WebSocket-Key:"))
-				return StringTools.trim(line.substr("Sec-WebSocket-Key:".length));
-		return null;
-	}
-
-	static function computeWebSocketAcceptKey(key:String):String {
-		var magic = key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
-		var sha1 = haxe.crypto.Sha1.make(Bytes.ofString(magic));
-		return haxe.crypto.Base64.encode(sha1);
+		callback();
 	}
 }
 #end

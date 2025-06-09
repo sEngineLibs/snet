@@ -47,21 +47,22 @@ extern abstract WebSocketClient(js.html.WebSocket) {
 }
 #elseif sys
 import haxe.io.Bytes;
-import haxe.crypto.Sha1;
 import haxe.crypto.Base64;
 import snet.http.Requests;
 import snet.internal.Client;
+import snet.internal.Socket;
 import snet.ws.WebSocket;
 
 using StringTools;
 
-#if !macro
-@:build(ssignals.Signals.build())
-#end
 class WebSocketClient extends Client {
 	var key:String;
 
 	@:signal function message(msg:Message);
+
+	public function new(uri:String, connect:Bool = true, process:Bool = true, ?certificate:Certificate):Void {
+		super(uri, connect, process, certificate);
+	}
 
 	overload extern inline function send(message:Message) {
 		return switch message {
@@ -72,30 +73,31 @@ class WebSocketClient extends Client {
 		}
 	}
 
-	@async overload extern inline function send(text:String) {
-		@await WebSocket.sendFrame(socket, Bytes.ofString(text), Text);
+	overload extern inline function send(text:String) {
+		WebSocket.sendFrame(socket, Bytes.ofString(text), Text);
 	}
 
-	@async overload extern override inline function send(data:Bytes) {
-		@await WebSocket.sendFrame(socket, data, Binary);
+	overload extern override inline function send(data:Bytes) {
+		WebSocket.sendFrame(socket, data, Binary);
 	}
 
 	public function ping() {
 		return WebSocket.sendFrame(socket, Bytes.ofString("ping-" + Std.string(Math.random())), Ping);
 	}
 
-	@async override function connectClient() {
+	override function connectClient() {
 		try {
-			@await handshake();
+			handshake();
 		} catch (e)
 			throw new WebSocketError('Handshake failed: $e');
 	}
 
-	@async override function closeClient() {
-		@await WebSocket.sendFrame(socket, Bytes.ofString("close"), Close);
+	override function closeClient() {
+		WebSocket.sendFrame(socket, Bytes.ofString("close"), Close);
 	}
 
-	@async function receive(data:Bytes) {
+	@:slot(data)
+	function receive(data:Bytes) {
 		var frame = WebSocket.readFrame(data);
 		switch frame.opcode {
 			case Text:
@@ -113,14 +115,14 @@ class WebSocketClient extends Client {
 		}
 	}
 
-	@async function handshake() {
+	function handshake() {
 		// ws key
 		var b = Bytes.alloc(16);
 		for (i in 0...16)
 			b.set(i, Std.random(255));
 		key = Base64.encode(b);
 
-		var resp = @await Requests.customRequest(this, false, {
+		var resp = Requests.customRequest(this, false, {
 			headers: [
 				"Host" => remote,
 				"User-Agent" => "snet",
@@ -147,13 +149,9 @@ class WebSocketClient extends Client {
 			if (resp.status != 101)
 				throw resp.headers.get("X_WEBSOCKET_REJECT_REASON");
 			var secKey = resp.headers.get("SEC_WEBSOCKET_ACCEPT");
-			if (secKey != wsKey(key))
+			if (secKey != WebSocket.computeWebSocketKey(key))
 				throw "Incorrect 'Sec-WebSocket-Accept' header value";
 		}
-	}
-
-	inline function wsKey(key:String):String {
-		return Base64.encode(Sha1.make(Bytes.ofString(key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11')));
 	}
 }
 #end
