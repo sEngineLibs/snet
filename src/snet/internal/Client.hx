@@ -9,7 +9,6 @@ class ClientError extends haxe.Exception {}
 
 #if !macro
 @:build(ssignals.Signals.build())
-@:autoBuild(ssignals.Signals.build())
 #end
 class Client {
 	var socket:Socket;
@@ -35,13 +34,12 @@ class Client {
 	@:signal function data(data:Bytes);
 
 	public function new(uri:URI, connect:Bool = true, process:Bool = true, ?certificate:Certificate):Void {
-		var info = uri.parse();
-		if (info == null)
-			throw new ClientError('Invalid URI: $uri');
+		if (uri == null)
+			throw new ClientError('Invalid URI');
 
-		isSecure = info.isSecure;
+		isSecure = uri.isSecure;
 		this.certificate = certificate;
-		remote = new HostInfo(info.host, info.port);
+		remote = uri.host;
 
 		if (connect)
 			this.connect(process);
@@ -61,10 +59,10 @@ class Client {
 		} else
 			socket = new Socket();
 		try {
-			socket.connect(new sys.net.Host(remote.host), remote.port);
+			socket.connect(remote);
 			if (certificate?.verify && secureSocket != null)
 				secureSocket.handshake();
-			local = new HostInfo(socket.host.host.toString(), socket.host.port);
+			local = socket.host.info;
 			isClosed = false;
 			connectClient();
 			log("Connected");

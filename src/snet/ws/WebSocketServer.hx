@@ -1,7 +1,6 @@
 package snet.ws;
 
-import snet.http.Requests.HttpRequest;
-#if sys
+import snet.http.Http;
 import snet.internal.Server;
 
 using StringTools;
@@ -9,9 +8,7 @@ using StringTools;
 @:access(snet.ws.WebSocketClient)
 class WebSocketServer extends Server<WebSocketClient> {
 	override function handleClient(client:WebSocketClient, callback:Void->Void) {
-		client.onData(d -> trace(d.toString()));
-		
-		var data = client.socket.receive();
+		var data = client.socket.recv(1.0);
 
 		if (data.length == 0) {
 			log('No handshake data received from ${client.remote}');
@@ -19,20 +16,41 @@ class WebSocketServer extends Server<WebSocketClient> {
 		}
 
 		var req:HttpRequest = data.toString();
-		var key = req.headers.get("Sec-WebSocket-Key");
-		if (key == null) {
-			log('No handshake key received from ${client.remote}');
-			return;
+		var resp:HttpResponse = {};
+
+		resp.headers.set(SEC_WEBSOCKET_VERSION, "13");
+		if (req.method != "GET" || req.version != "HTTP/1.1") {
+			resp.status = 400;
+			resp.statusText = "Bad";
+			resp.headers.set(CONNECTION, "close");
+			resp.headers.set(X_WEBSOCKET_REJECT_REASON, 'Bad request');
+		} else if (req.headers.get(SEC_WEBSOCKET_VERSION) != "13") {
+			resp.status = 426;
+			resp.statusText = "Upgrade";
+			resp.headers.set(CONNECTION, "close");
+			resp.headers.set(X_WEBSOCKET_REJECT_REASON,
+				'Unsupported websocket client version: ${req.headers.get(SEC_WEBSOCKET_VERSION)}, Only version 13 is supported.');
+		} else if (req.headers.get(UPGRADE) != "websocket") {
+			resp.status = 426;
+			resp.statusText = "Upgrade";
+			resp.headers.set(CONNECTION, "close");
+			resp.headers.set(X_WEBSOCKET_REJECT_REASON, 'Unsupported upgrade header: ${req.headers.get(UPGRADE)}.');
+		} else if (req.headers.get(CONNECTION).indexOf("Upgrade") == -1) {
+			resp.status = 426;
+			resp.statusText = "Upgrade";
+			resp.headers.set(CONNECTION, "close");
+			resp.headers.set(X_WEBSOCKET_REJECT_REASON, 'Unsupported connection header: ${req.headers.get(CONNECTION)}.');
+		} else {
+			var key = req.headers.get(SEC_WEBSOCKET_KEY);
+			resp.status = 101;
+			resp.statusText = "Switching Protocols";
+			resp.headers.set(UPGRADE, "websocket");
+			resp.headers.set(CONNECTION, "Upgrade");
+			resp.headers.set(SEC_WEBSOCKET_ACCEPT, WebSocket.computeWebSocketAcceptKey(key));
 		}
 
-		var acceptKey = WebSocket.computeWebSocketAcceptKey(key);
-		var response = "HTTP/1.1 101 Switching Protocols\r\n" + "Upgrade: websocket\r\n" + "Connection: Upgrade\r\n" + "Sec-WebSocket-Accept: " + acceptKey
-			+ "\r\n\r\n";
-
-		client.socket.output.writeString(response);
-		client.socket.output.flush();
+		client.socket.send(resp);
 
 		callback();
 	}
 }
-#end

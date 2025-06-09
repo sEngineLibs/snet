@@ -48,21 +48,20 @@ extern abstract WebSocketClient(js.html.WebSocket) {
 #elseif sys
 import haxe.io.Bytes;
 import haxe.crypto.Base64;
+import snet.http.Http;
 import snet.http.Requests;
 import snet.internal.Client;
-import snet.internal.Socket;
 import snet.ws.WebSocket;
 
 using StringTools;
 
+#if !macro
+@:build(ssignals.Signals.build())
+#end
 class WebSocketClient extends Client {
 	var key:String;
 
 	@:signal function message(msg:Message);
-
-	public function new(uri:String, connect:Bool = true, process:Bool = true, ?certificate:Certificate):Void {
-		super(uri, connect, process, certificate);
-	}
 
 	overload extern inline function send(message:Message) {
 		return switch message {
@@ -88,6 +87,7 @@ class WebSocketClient extends Client {
 	override function connectClient() {
 		try {
 			handshake();
+			onData(receive);
 		} catch (e)
 			throw new WebSocketError('Handshake failed: $e');
 	}
@@ -96,7 +96,6 @@ class WebSocketClient extends Client {
 		WebSocket.sendFrame(socket, Bytes.ofString("close"), Close);
 	}
 
-	@:slot(data)
 	function receive(data:Bytes) {
 		var frame = WebSocket.readFrame(data);
 		switch frame.opcode {
@@ -122,17 +121,18 @@ class WebSocketClient extends Client {
 			b.set(i, Std.random(255));
 		key = Base64.encode(b);
 
-		var resp = Requests.customRequest(this, false, {
+		log('Handshaking with key $key');
+		var resp = Requests.customRequest(socket, false, {
 			headers: [
-				"Host" => remote,
-				"User-Agent" => "snet",
-				"Sec-Websocket-Key" => key,
-				"Sec-Websocket-Version" => "13",
-				"Upgrade" => "websocket",
-				"Connection" => "Upgrade",
-				"Pragma" => "no-cache",
-				"Cache-Control" => "no-cache",
-				"Origin" => local
+				HOST => remote,
+				USER_AGENT => "snet",
+				SEC_WEBSOCKET_KEY => key,
+				SEC_WEBSOCKET_VERSION => "13",
+				UPGRADE => "websocket",
+				CONNECTION => "Upgrade",
+				PRAGMA => "no-cache",
+				CACHE_CONTROL => "no-cache",
+				ORIGIN => local
 			]
 		});
 
@@ -147,8 +147,8 @@ class WebSocketClient extends Client {
 			throw resp.error;
 		else {
 			if (resp.status != 101)
-				throw resp.headers.get("X_WEBSOCKET_REJECT_REASON");
-			var secKey = resp.headers.get("SEC_WEBSOCKET_ACCEPT");
+				throw resp.headers.get(X_WEBSOCKET_REJECT_REASON) ?? resp.statusText;
+			var secKey = resp.headers.get(SEC_WEBSOCKET_ACCEPT);
 			if (secKey != WebSocket.computeWebSocketKey(key))
 				throw "Incorrect 'Sec-WebSocket-Accept' header value";
 		}

@@ -4,18 +4,19 @@ package snet;
 abstract URI(URIData) from URIData to URIData {
 	@:from
 	public static function fromString(value:String):URI {
-		var reg = new EReg("^(?:(?:([a-z][a-z0-9+\\-.]*)):)?(?://(?:(?:([^:@]+)(?::([^@]*))?@)?([^/?#]*)))?(\\/[^?#]*)?(?:\\?([^#]*))?(?:#(.*))?$", "i");
-
+		var reg = new EReg("^(?:(?:([a-z][a-z0-9+\\-.]*)):)?(?:\\/\\/)?(?:(?:([^:@]+)(?::([^@]*))?@)?([^\\/?#]*))?(\\/[^?#]*)?(?:\\?([^#]*))?(?:#(.*))?$", "i");
 		if (value == null || !reg.match(value))
 			return null;
 
 		var proto = reg.matched(1);
 		var isSecure = proto != null && (proto == "https" || proto == "wss");
 
+		var rawHost = reg.matched(4);
+
 		return {
 			proto: proto,
 			isSecure: isSecure,
-			host: reg.matched(4),
+			host: rawHost != null ? HostInfo.fromString(rawHost) : null,
 			user: reg.matched(2),
 			pass: reg.matched(3),
 			path: reg.matched(5) ?? "/",
@@ -87,10 +88,13 @@ abstract HostInfo(HostInfoData) from HostInfoData to HostInfoData {
 		var regex = ~/^([^:]+)(?::(\d+))?$/;
 		if (value == null || !regex.match(value))
 			return null;
+		return new HostInfo(regex.matched(1), regex.matched(2) != null ? Std.parseInt(regex.matched(2)) : 80);
+	}
 
-		return {
-			host: regex.matched(1),
-			port: regex.matched(2) != null ? Std.parseInt(regex.matched(2)) : 80
+	public function new(host:String, port:Int) {
+		this = {
+			host: host,
+			port: port
 		}
 	}
 

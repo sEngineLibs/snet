@@ -3,9 +3,9 @@ package snet.ws;
 #if sys
 import haxe.Exception;
 import haxe.io.Bytes;
-import haxe.io.BytesBuffer;
 import haxe.crypto.Sha1;
 import haxe.crypto.Base64;
+import snet.internal.Buffer;
 import snet.internal.Socket;
 
 using StringTools;
@@ -50,39 +50,40 @@ class WebSocket {
 			mask.set(i, Std.random(256));
 		var sizeMask = isMasked ? 0x80 : 0x00;
 
-		var out = new BytesBuffer();
-		out.addByte((isFinal ? 0x80 : 0x00) | opcode);
+		var out = new Buffer();
+		out.writeByte((isFinal ? 0x80 : 0x00) | opcode);
 
 		var len = data.length;
 		if (len < 126) {
-			out.addByte(len | sizeMask);
+			out.writeByte(len | sizeMask);
 		} else if (len <= 0xFFFF) {
-			out.addByte(126 | sizeMask);
-			out.addByte(len >>> 8);
-			out.addByte(len & 0xFF);
+			out.writeByte(126 | sizeMask);
+			out.writeByte(len >>> 8);
+			out.writeByte(len & 0xFF);
 		} else {
-			out.addByte(127 | sizeMask);
+			out.writeByte(127 | sizeMask);
 			// no UInt64 in haxe so 0 + 32 bit
-			out.addByte(0);
-			out.addByte(0);
-			out.addByte(0);
-			out.addByte(0);
-			out.addByte((len >>> 24) & 0xFF);
-			out.addByte((len >>> 16) & 0xFF);
-			out.addByte((len >>> 8) & 0xFF);
-			out.addByte(len & 0xFF);
+			out.writeByte(0);
+			out.writeByte(0);
+			out.writeByte(0);
+			out.writeByte(0);
+			out.writeByte((len >>> 24) & 0xFF);
+			out.writeByte((len >>> 16) & 0xFF);
+			out.writeByte((len >>> 8) & 0xFF);
+			out.writeByte(len & 0xFF);
 		}
 
 		if (isMasked) {
-			out.addBytes(mask, out.length, mask.length);
+			out.writeBytes(mask);
 			var payload = Bytes.alloc(len);
 			for (i in 0...len)
 				payload.set(i, data.get(i) ^ mask.get(i % 4));
-			out.addBytes(payload, out.length, mask.length);
-		} else
-			out.addBytes(data, out.length, mask.length);
+			out.writeBytes(payload);
+		} else {
+			out.writeBytes(data);
+		}
 
-		return out.getBytes();
+		return out.readAllAvailableBytes();
 	}
 
 	public static function readFrame(bytes:Bytes):{opcode:OpCode, isFinal:Bool, data:Bytes} {

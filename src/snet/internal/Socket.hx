@@ -2,7 +2,7 @@ package snet.internal;
 
 import sys.net.Host;
 import haxe.io.Bytes;
-import haxe.io.BytesBuffer;
+import snet.Net;
 
 // imports
 typedef SecureKey = sys.ssl.Key;
@@ -21,10 +21,15 @@ typedef SysSecureSocket = // native secure socket
 
 // types
 typedef Certificate = {
-	?hostname:String,
+	?host:String,
 	cert:SecureCertificate,
 	key:SecureKey,
 	verify:Bool
+}
+
+typedef ConnectionInfo = {
+	ip:Int,
+	info:HostInfo
 }
 
 @:forward()
@@ -51,7 +56,7 @@ abstract SecureSocket(ASocket<SysSecureSocket>) from SysSecureSocket to SysSecur
 				this.setCertificate(certificate.cert, certificate.key);
 			else {
 				this.setCertificate(certificate.cert, certificate.key);
-				this.setHostname(certificate.hostname);
+				this.setHostname(certificate.host);
 			}
 		}
 	}
@@ -69,14 +74,22 @@ abstract SecureSocket(ASocket<SysSecureSocket>) from SysSecureSocket to SysSecur
 @:forward()
 @:forward.new
 private abstract ASocket<T:SysSocket>(T) from T to T {
-	public var host(get, never):{host:Host, port:Int};
-	public var peer(get, never):{host:Host, port:Int};
+	public var host(get, never):ConnectionInfo;
+	public var peer(get, never):ConnectionInfo;
 
-	public function connect(host:String, port:Int) {
+	overload extern public inline function connect(host:HostInfo) {
+		connect(host.host, host.port);
+	}
+
+	overload extern public inline function connect(host:String, port:Int) {
 		this.connect(new Host(host), port);
 	}
 
-	public function send(data:Bytes, ?timeout:Float):Bool {
+	overload extern public inline function send(text:String) {
+		send(Bytes.ofString(text));
+	}
+
+	overload extern public inline function send(data:Bytes, ?timeout:Float):Bool {
 		if ((Socket.select([], [this], [], timeout)).write.length > 0) {
 			this.output.write(data);
 			this.output.flush();
@@ -86,27 +99,42 @@ private abstract ASocket<T:SysSocket>(T) from T to T {
 	}
 
 	public function recv(bufSize:Int = 4096, ?timeout:Float):Null<Bytes> {
-		var data = new BytesBuffer();
-		if (Socket.select([this], [], [], timeout).read.length > 0) {
-			var buf = Bytes.alloc(bufSize);
-			while (true) {
-				var len = this.input.readBytes(buf, 0, bufSize);
-				if (len > 0) {
-					data.addBytes(buf, 0, len);
-					if (len < bufSize)
-						break;
-				} else
-					return null;
-			}
+		if (Socket.select([this], [], [], timeout).read.length == 0)
+			return Bytes.alloc(0);
+
+		var data = new Buffer();
+		final buf = Bytes.alloc(bufSize);
+		while (true) {
+			var len = 0;
+			try {
+				len = this.input.readBytes(buf, 0, buf.length);
+			} catch (e:haxe.io.Eof)
+				return null;
+			if (len == 0)
+				return null;
+			data.writeBytes(buf);
+			if (len < buf.length)
+				break;
 		}
-		return data.getBytes();
+
+		return data.readAllAvailableBytes();
 	}
 
 	function get_host() {
-		return this.host();
+		return getConnectionInfo(this.host());
 	}
 
 	function get_peer() {
-		return this.peer();
+		return getConnectionInfo(this.peer());
+	}
+
+	function getConnectionInfo(info:{host:Host, port:Int}) {
+		return {
+			ip: info.host.ip,
+			info: {
+				host: info.host.toString(),
+				port: info.port
+			}
+		}
 	}
 }

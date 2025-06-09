@@ -9,6 +9,9 @@ import snet.internal.Socket;
 class ServerError extends Exception {}
 private typedef ClientConstructor = (uri:URI, ?connect:Bool, ?process:Bool, ?certificate:Certificate) -> Void;
 
+#if !macro
+@:build(ssignals.Signals.build())
+#end
 @:generic
 class Server<T:Constructible<ClientConstructor> & Client> extends Client {
 	public var limit(default, null):Int;
@@ -42,7 +45,7 @@ class Server<T:Constructible<ClientConstructor> & Client> extends Client {
 			socket.listen(limit);
 			isClosed = false;
 			log("Opened");
-			opened();
+			// opened();
 			if (process)
 				this.process();
 		} catch (e) {
@@ -75,12 +78,9 @@ class Server<T:Constructible<ClientConstructor> & Client> extends Client {
 	override function tick() {
 		var conn = socket.accept();
 		if (conn != null) {
-			var peer = conn.peer;
-			var host = conn.host;
-			var client = new T(local, false, false, certificate);
+			var client = new T(conn.peer.info.toString(), false, false, certificate);
 			client.socket = conn;
-			client.remote = new HostInfo(peer.host.toString(), peer.port);
-			client.local = new HostInfo(host.host.toString(), host.port);
+			client.local = conn.host.info;
 			client.isClosed = false;
 			handleClient(client, () -> {
 				client.onClosed(() -> {
