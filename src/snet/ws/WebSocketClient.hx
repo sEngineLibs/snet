@@ -60,6 +60,7 @@ using StringTools;
 #end
 class WebSocketClient extends Client {
 	var key:String;
+	var handshaked:Bool = false;
 
 	@:signal function message(msg:Message);
 
@@ -84,33 +85,36 @@ class WebSocketClient extends Client {
 		return WebSocket.sendFrame(socket, Bytes.ofString("ping-" + Std.string(Math.random())), Ping);
 	}
 
-	override function connectClient() {
+	function connectClient() {
 		try {
 			handshake();
-			onData(receive);
+			handshaked = true;
 		} catch (e)
 			throw new WebSocketError('Handshake failed: $e');
 	}
 
-	override function closeClient() {
+	function closeClient() {
 		WebSocket.sendFrame(socket, Bytes.ofString("close"), Close);
+		handshaked = false;
 	}
 
 	function receive(data:Bytes) {
-		var frame = WebSocket.readFrame(data);
-		switch frame.opcode {
-			case Text:
-				message(Text(frame.data.toString()));
-			case Binary:
-				message(Binary(frame.data));
-			case Close:
-				close();
-			case Ping:
-				WebSocket.sendFrame(socket, frame.data, Pong);
-			case Pong:
-				null;
-			case Continuation:
-				null;
+		if (handshaked) {
+			var frame = WebSocket.readFrame(data);
+			switch frame.opcode {
+				case Text:
+					message(Text(frame.data.toString()));
+				case Binary:
+					message(Binary(frame.data));
+				case Close:
+					close();
+				case Ping:
+					WebSocket.sendFrame(socket, frame.data, Pong);
+				case Pong:
+					null;
+				case Continuation:
+					null;
+			}
 		}
 	}
 
@@ -121,7 +125,7 @@ class WebSocketClient extends Client {
 			b.set(i, Std.random(255));
 		key = Base64.encode(b);
 
-		log('Handshaking with key $key');
+		logger.debug('Handshaking with key $key');
 		var resp = Requests.customRequest(socket, false, {
 			headers: [
 				HOST => remote,
@@ -149,9 +153,13 @@ class WebSocketClient extends Client {
 			if (resp.status != 101)
 				throw resp.headers.get(X_WEBSOCKET_REJECT_REASON) ?? resp.statusText;
 			var secKey = resp.headers.get(SEC_WEBSOCKET_ACCEPT);
-			if (secKey != WebSocket.computeWebSocketKey(key))
+			if (secKey != WebSocket.computeKey(key))
 				throw "Incorrect 'Sec-WebSocket-Accept' header value";
 		}
+	}
+
+	override function toString() {
+		return super.toString() + (key != null ? '[$key]' : "");
 	}
 }
 #end

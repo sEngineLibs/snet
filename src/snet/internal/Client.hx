@@ -1,7 +1,7 @@
 package snet.internal;
 
 import haxe.io.Bytes;
-import sys.thread.Thread;
+import slog.Log;
 import snet.Net;
 import snet.internal.Socket;
 
@@ -10,8 +10,9 @@ class ClientError extends haxe.Exception {}
 #if !macro
 @:build(ssignals.Signals.build())
 #end
-class Client {
+abstract class Client {
 	var socket:Socket;
+	var logger:Logger = new Logger("CLIENT");
 
 	public var isClosed(default, null):Bool = true;
 	public var isSecure(default, null):Bool;
@@ -31,8 +32,6 @@ class Client {
 
 	@:signal function closed();
 
-	@:signal function data(data:Bytes);
-
 	public function new(uri:URI, connect:Bool = true, process:Bool = true, ?certificate:Certificate):Void {
 		if (uri == null)
 			throw new ClientError('Invalid URI');
@@ -45,9 +44,11 @@ class Client {
 			this.connect(process);
 	}
 
-	function connectClient():Void {}
+	abstract function receive(data:Bytes):Void;
 
-	function closeClient():Void {}
+	abstract function connectClient():Void;
+
+	abstract function closeClient():Void;
 
 	public function connect(process:Bool = true):Void {
 		if (!isClosed)
@@ -63,13 +64,15 @@ class Client {
 			if (certificate?.verify && secureSocket != null)
 				secureSocket.handshake();
 			local = socket.host.info;
+			logger.name = 'CLIENT $local - $remote';
 			isClosed = false;
 			connectClient();
-			log("Connected");
+			logger.debug("Connected");
 			opened();
 			if (process)
 				this.process();
 		} catch (e) {
+			logger.error('Failed to connect: $e');
 			socket.close();
 			throw e;
 		}
@@ -86,46 +89,49 @@ class Client {
 			throw new ClientError("Client is not connected");
 		try {
 			if (socket.send(data))
-				log('Sent ${data.length} bytes of data');
+				logger.info('Sent ${data.length} bytes of data');
 			else
 				throw new ClientError("Client is not available for writing");
 		} catch (e) {
-			log('Failed to send data: $e');
+			logger.error('Failed to send data: $e');
 			throw e;
 		}
 	}
 
 	function process():Void {
-		Thread.create(() -> {
+		#if target.threaded
+		sys.thread.Thread.create(() -> {
+		#end
 			while (!isClosed)
 				if (!tick())
 					break;
 			isClosed = true;
 			closeClient();
 			socket.close();
-			log("Closed");
+			logger.debug("Closed");
 			closed();
+		#if target.threaded
 		});
+		#end
 	}
 
 	function tick():Bool {
-		if (!isClosed) {
-			try {
-				var data = socket.recv();
-				if (data != null) {
-					if (data.length > 0) {
-						log('Received ${data.length} bytes of data');
-						this.data(data);
-					}
-					return true;
+		try {
+			var data = socket.recv();
+			if (data != null) {
+				if (data.length > 0) {
+					logger.info('Received ${data.length} bytes of data');
+					receive(data);
 				}
-			} catch (e)
-				log('Failed to tick: $e');
-		}
+				return true;
+			} else
+				logger.debug('Connection closed by peer');
+		} catch (e)
+			logger.error('Failed to tick: $e');
 		return false;
 	}
 
-	function log(msg:String) {
-		slog.Log.debug('CLIENT [$local - $remote] | $msg');
+	function toString() {
+		return logger.name;
 	}
 }

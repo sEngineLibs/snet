@@ -1,4 +1,4 @@
-package hx.ws.nodejs;
+package snet.internal.node;
 
 #if node
 import sys.net.Host;

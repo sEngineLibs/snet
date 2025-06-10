@@ -13,9 +13,13 @@ private typedef ClientConstructor = (uri:URI, ?connect:Bool, ?process:Bool, ?cer
 @:build(ssignals.Signals.build())
 #end
 @:generic
-class Server<T:Constructible<ClientConstructor> & Client> extends Client {
+abstract class Server<T:Constructible<ClientConstructor> & Client> extends Client {
 	public var limit(default, null):Int;
 	public var clients(default, null):Array<T> = [];
+
+	@:signal function clientOpened(client:T):Void;
+
+	@:signal function clientClosed(client:T):Void;
 
 	public function new(uri:URI, limit:Int = 10, open:Bool = true, process:Bool = true, ?cert:Certificate) {
 		super(uri, false, cert);
@@ -28,13 +32,7 @@ class Server<T:Constructible<ClientConstructor> & Client> extends Client {
 			this.open(process);
 	}
 
-	@:signal function clientOpened(client:T):Void;
-
-	@:signal function clientClosed(client:T):Void;
-
-	override function connect(process:Bool = true):Void {
-		throw new ServerError("Can't connect server");
-	}
+	abstract function handleClient(client:T):Void;
 
 	public function open(process:Bool = true):Void {
 		if (!isClosed)
@@ -44,11 +42,13 @@ class Server<T:Constructible<ClientConstructor> & Client> extends Client {
 			socket.bind(new sys.net.Host(local.host), local.port);
 			socket.listen(limit);
 			isClosed = false;
-			log("Opened");
-			// opened();
+			logger.name = 'SERVER $local';
+			logger.debug("Opened");
+			opened();
 			if (process)
 				this.process();
 		} catch (e) {
+			logger.error('Failed to open: $e');
 			socket.close();
 			throw e;
 		}
@@ -70,10 +70,16 @@ class Server<T:Constructible<ClientConstructor> & Client> extends Client {
 						client.send(data);
 	}
 
-	override function closeClient() {
+	function connectClient():Void {
+		throw new ServerError("Can't connect server");
+	}
+
+	function closeClient() {
 		for (client in clients)
 			closeServerClient(client);
 	}
+
+	function receive(data:Bytes) {}
 
 	override function tick() {
 		var conn = socket.accept();
@@ -81,33 +87,26 @@ class Server<T:Constructible<ClientConstructor> & Client> extends Client {
 			var client = new T(conn.peer.info.toString(), false, false, certificate);
 			client.socket = conn;
 			client.local = conn.host.info;
+			client.logger.name = 'HANDLER ${client.local} - ${client.remote}';
 			client.isClosed = false;
-			handleClient(client, () -> {
-				client.onClosed(() -> {
-					clients.remove(client);
-					clientClosed(client);
-				});
-				clients.push(client);
-				clientOpened(client);
-				client.process();
+			if (isSecure && certificate.verify)
+				cast(client.socket, SecureSocket).handshake();
+			handleClient(client);
+			client.onClosed(() -> {
+				clients.remove(client);
+				clientClosed(client);
 			});
+			clients.push(client);
+			logger.debug('New client: ${client.remote}');
+			clientOpened(client);
+			client.process();
 		}
 		return true;
-	}
-
-	function handleClient(client:T, callback:Void->Void) {
-		if (isSecure && certificate.verify)
-			cast(client.socket, SecureSocket).handshake();
-		callback();
 	}
 
 	function closeServerClient(client:T):Void {
 		clients.remove(client);
 		clientClosed(client);
 		client.close();
-	}
-
-	override function log(msg:String) {
-		slog.Log.debug('SERVER $local | $msg');
 	}
 }

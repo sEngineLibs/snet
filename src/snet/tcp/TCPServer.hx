@@ -1,3 +1,5 @@
 package snet.tcp;
 
-typedef TCPServer = snet.internal.Server<TCPClient>;
+class TCPServer extends snet.internal.Server<TCPClient> {
+	function handleClient(client:TCPClient) {}
+}

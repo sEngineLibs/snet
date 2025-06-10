@@ -2,6 +2,7 @@ package snet.internal;
 
 import sys.net.Host;
 import haxe.io.Bytes;
+import haxe.io.BytesBuffer;
 import snet.Net;
 
 // imports
@@ -67,7 +68,7 @@ abstract SecureSocket(ASocket<SysSecureSocket>) from SysSecureSocket to SysSecur
 	}
 
 	public function accept():SecureSocket {
-		return this.accept();
+		return cast(this.accept(), SecureSocket);
 	}
 }
 
@@ -98,26 +99,24 @@ private abstract ASocket<T:SysSocket>(T) from T to T {
 		return false;
 	}
 
+	// TODO: handle Unix.Unix_error(56, "recv", "")
 	public function recv(bufSize:Int = 4096, ?timeout:Float):Null<Bytes> {
 		if (Socket.select([this], [], [], timeout).read.length == 0)
 			return Bytes.alloc(0);
 
-		var data = new Buffer();
+		var data = new BytesBuffer();
 		final buf = Bytes.alloc(bufSize);
+
 		while (true) {
-			var len = 0;
-			try {
-				len = this.input.readBytes(buf, 0, buf.length);
-			} catch (e:haxe.io.Eof)
+			var len = this.input.readBytes(buf, 0, buf.length);
+			if (len <= 0)
 				return null;
-			if (len == 0)
-				return null;
-			data.writeBytes(buf);
+			data.addBytes(buf, 0, len);
 			if (len < buf.length)
 				break;
 		}
 
-		return data.readAllAvailableBytes();
+		return data.getBytes();
 	}
 
 	function get_host() {
