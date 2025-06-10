@@ -19,11 +19,11 @@ class Requests {
 			socket.connect(uri.host);
 
 		req = req ?? {};
-		if (!req.headers.exists("Host"))
-			req.headers.set("Host", uri.host.host);
+		if (!req.headers.exists(HOST))
+			req.headers.set(HOST, uri.host.host);
 
-		if (req.data != null && !req.headers.exists("Content-Length"))
-			req.headers.set("Content-Length", Std.string(req.data.length));
+		if (req.data != null && !req.headers.exists(CONTENT_LENGTH))
+			req.headers.set(CONTENT_LENGTH, Std.string(req.data.length));
 
 		return customRequest(socket, true, req, timeout);
 	}

@@ -15,7 +15,7 @@
         "client",
         "network"
     ],
-    "version": "0.0.1",
+    "version": "0.0.2",
     "classPath": "src",
     "description": "Library for networking in Haxe",
     "contributors": ["smoothie"],

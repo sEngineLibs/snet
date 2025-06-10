@@ -1,5 +1,9 @@
 package;
 
+import haxe.Json;
+import sys.thread.Thread;
+import snet.http.Requests;
+import snet.http.HttpServer;
 import slog.Log;
 import snet.ws.WebSocketServer;
 import snet.ws.WebSocketClient;
@@ -7,24 +11,24 @@ import snet.ws.WebSocketClient;
 class Tests {
 	static function main() {
 		run();
-		haxe.Timer.delay(() -> Log.close(), 1000);
 	}
 
 	static function run() {
-		var ser = new WebSocketServer("ws://localhost:8080");
-		ser.onClientOpened(c -> c.onMessage(m -> switch m {
-			case Text(text):
-				Log.debug(text);
-			default:
+		var ser = new HttpServer("http://localhost:80");
+		ser.onClientOpened(c -> c.onRequest(r -> {
+			trace(r);
+			c.response({
+				headers: ["A" => "B"]
+			});
 		}));
 
-		var cli = new WebSocketClient("ws://localhost:8080");
+		var resp = Requests.request("http://localhost:80", {
+			data: Json.stringify({
+				a: "b"
+			})
+		});
+		trace(resp);
 
-		var input = Sys.stdin().readLine();
-		while (input != "0") {
-			cli.send(input);
-			input = Sys.stdin().readLine();
-		}
-		ser.close();
+		Sys.getChar(true);
 	}
 }
