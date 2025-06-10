@@ -37,7 +37,8 @@ abstract class Server<T:Constructible<ClientConstructor> & Client> extends Clien
 	public function open(process:Bool = true):Void {
 		if (!isClosed)
 			throw new ServerError("Server is already open");
-		socket = isSecure ? new SecureSocket(certificate) : new Socket();
+		// socket = isSecure ? new SecureSocket(certificate) : new Socket();
+		socket = new Socket();
 		try {
 			socket.bind(new sys.net.Host(local.host), local.port);
 			socket.listen(limit);
@@ -89,8 +90,8 @@ abstract class Server<T:Constructible<ClientConstructor> & Client> extends Clien
 			client.local = conn.host.info;
 			client.logger.name = 'HANDLER ${client.local} - ${client.remote}';
 			client.isClosed = false;
-			if (isSecure && certificate.verify)
-				cast(client.socket, SecureSocket).handshake();
+			// if (isSecure && certificate.verify)
+			// 	cast(client.socket, SecureSocket).handshake();
 			handleClient(client);
 			client.onClosed(() -> {
 				clients.remove(client);

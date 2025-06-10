@@ -86,11 +86,11 @@ class WebSocketClient extends Client {
 	}
 
 	function connectClient() {
-		try {
-			handshake();
-			handshaked = true;
-		} catch (e)
-			throw new WebSocketError('Handshake failed: $e');
+		// try {
+		handshake();
+		handshaked = true;
+		// } catch (e)
+		// 	throw new WebSocketError('Handshake failed: $e');
 	}
 
 	function closeClient() {

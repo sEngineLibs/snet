@@ -8,10 +8,10 @@ import snet.internal.Socket;
 class Requests {
 	public static function request(uri:URI, ?req:HttpRequest, ?proxy:Proxy, timeout:Float = 10.0, ?cert:Certificate) {
 		var socket:Socket;
-		if (uri.isSecure)
-			socket = new SecureSocket(cert);
-		else
-			socket = new Socket();
+		// if (uri.isSecure)
+		// 	socket = new SecureSocket(cert);
+		// else
+		socket = new Socket();
 
 		if (proxy != null)
 			socket.connect(proxy.host);

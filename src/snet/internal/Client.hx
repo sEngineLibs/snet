@@ -53,29 +53,29 @@ abstract class Client {
 	public function connect(process:Bool = true):Void {
 		if (!isClosed)
 			throw new ClientError("Client is already connected");
-		var secureSocket:SecureSocket = null;
-		if (isSecure) {
-			secureSocket = new SecureSocket(certificate);
-			socket = secureSocket;
-		} else
-			socket = new Socket();
-		try {
-			socket.connect(remote);
-			if (certificate?.verify && secureSocket != null)
-				secureSocket.handshake();
-			local = socket.host.info;
-			logger.name = 'CLIENT $local - $remote';
-			isClosed = false;
-			connectClient();
-			logger.debug("Connected");
-			opened();
-			if (process)
-				this.process();
-		} catch (e) {
-			logger.error('Failed to connect: $e');
-			socket.close();
-			throw e;
-		}
+		// var secureSocket:SecureSocket = null;
+		// if (isSecure) {
+		// 	secureSocket = new SecureSocket(certificate);
+		// 	socket = secureSocket;
+		// } else
+		socket = new Socket();
+		socket.connect(remote);
+		// try {
+		// if (certificate?.verify && secureSocket != null)
+		// 	secureSocket.handshake();
+		local = socket.host.info;
+		logger.name = 'CLIENT $local - $remote';
+		isClosed = false;
+		connectClient();
+		logger.debug("Connected");
+		opened();
+		if (process)
+			this.process();
+		// } catch (e) {
+		// 	logger.error('Failed to connect: $e');
+		// 	socket.close();
+		// 	throw e;
+		// }
 	}
 
 	public function close():Void {

@@ -4,13 +4,11 @@ import haxe.io.Bytes;
 import snet.Net;
 import snet.http.Http;
 import snet.internal.Socket;
-import snet.internal.Server;
-import snet.internal.Client;
 
 #if !macro
 @:build(ssignals.Signals.build())
 #end
-class HttpServer extends Server<Client> {
+class HttpServer extends snet.internal.Server<HttpClient> {
 	@:signal function request(request:HttpRequest);
 
 	public function new(uri:URI, limit:Int = 10, open:Bool = true, process:Bool = true, ?cert:Certificate) {
@@ -21,8 +19,22 @@ class HttpServer extends Server<Client> {
 		send(Bytes.ofString(response));
 	}
 
-	@:slot(clientOpened)
-	function trackClient(client:Client) {
-		client.onData(data -> request(data.toString()));
+	function handleClient(client:HttpClient) {
+		client.onRequest(data -> request(data.toString()));
+	}
+}
+
+#if !macro
+@:build(ssignals.Signals.build())
+#end
+class HttpClient extends snet.internal.Client {
+	@:signal function request(request:HttpRequest);
+
+	function connectClient() {}
+
+	function closeClient() {}
+
+	function receive(data:Bytes) {
+		request(data.toString());
 	}
 }

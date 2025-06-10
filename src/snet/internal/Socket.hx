@@ -10,7 +10,8 @@ typedef SecureKey = sys.ssl.Key;
 typedef SecureCertificate = sys.ssl.Certificate;
 
 typedef SysSocket = // native socket
-	#if nodejs snet.internal.node.Socket // nodejs
+	#if eval snet.internal.eval.Socket // eval
+	#elseif nodejs snet.internal.node.Socket // nodejs
 	#elseif php php.net.Socket // php
 	#else sys.net.Socket // other sys platforms
 	#end;
@@ -45,32 +46,30 @@ abstract Socket(ASocket<SysSocket>) from SysSocket to SysSocket {
 	}
 }
 
-@:forward()
-@:forward.new
-abstract SecureSocket(ASocket<SysSecureSocket>) from SysSecureSocket to SysSecureSocket {
-	public function new(?certificate:Certificate, isClient:Bool = true) {
-		this = new SysSecureSocket();
-		if (certificate != null) {
-			this.setCA(certificate.cert);
-			this.verifyCert = certificate.verify;
-			if (isClient && certificate.verify)
-				this.setCertificate(certificate.cert, certificate.key);
-			else {
-				this.setCertificate(certificate.cert, certificate.key);
-				this.setHostname(certificate.host);
-			}
-		}
-	}
-
-	@:to
-	function toSocket():Socket {
-		return (this : SysSocket);
-	}
-
-	public function accept():SecureSocket {
-		return cast(this.accept(), SecureSocket);
-	}
-}
+// @:forward()
+// @:forward.new
+// abstract SecureSocket(ASocket<SysSecureSocket>) from SysSecureSocket to SysSecureSocket {
+// 	public function new(?certificate:Certificate, isClient:Bool = true) {
+// 		this = new SysSecureSocket();
+// 		if (certificate != null) {
+// 			this.setCA(certificate.cert);
+// 			this.verifyCert = certificate.verify;
+// 			if (isClient && certificate.verify)
+// 				this.setCertificate(certificate.cert, certificate.key);
+// 			else {
+// 				this.setCertificate(certificate.cert, certificate.key);
+// 				this.setHostname(certificate.host);
+// 			}
+// 		}
+// 	}
+// 	@:to
+// 	function toSocket():Socket {
+// 		return (this : SysSocket);
+// 	}
+// 	public function accept():SecureSocket {
+// 		return cast(this.accept(), SecureSocket);
+// 	}
+// }
 
 @:forward()
 @:forward.new
@@ -99,7 +98,6 @@ private abstract ASocket<T:SysSocket>(T) from T to T {
 		return false;
 	}
 
-	// TODO: handle Unix.Unix_error(56, "recv", "")
 	public function recv(bufSize:Int = 4096, ?timeout:Float):Null<Bytes> {
 		if (Socket.select([this], [], [], timeout).read.length == 0)
 			return Bytes.alloc(0);
