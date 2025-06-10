@@ -34,10 +34,7 @@ class Requests {
 		var resp:HttpResponse = try {
 			socket.recv(timeout).toString();
 		} catch (e)
-			{
-				status: 408,
-				statusText: "Request Timeout"
-			}
+			null;
 
 		if (close)
 			socket.close();

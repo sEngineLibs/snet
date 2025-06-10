@@ -85,6 +85,5 @@ class WebSocketServer extends Server<WebSocketClient> {
 		}
 
 		client.socket.send(resp);
-		client.handshaked = true;
 	}
 }

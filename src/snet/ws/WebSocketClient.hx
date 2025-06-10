@@ -60,7 +60,6 @@ using StringTools;
 #end
 class WebSocketClient extends Client {
 	var key:String;
-	var handshaked:Bool = false;
 
 	@:signal function message(msg:Message);
 
@@ -86,35 +85,31 @@ class WebSocketClient extends Client {
 	}
 
 	function connectClient() {
-		// try {
-		handshake();
-		handshaked = true;
-		// } catch (e)
-		// 	throw new WebSocketError('Handshake failed: $e');
+		try {
+			handshake();
+		} catch (e)
+			throw new WebSocketError('Handshake failed: $e');
 	}
 
 	function closeClient() {
 		WebSocket.sendFrame(socket, Bytes.ofString("close"), Close);
-		handshaked = false;
 	}
 
 	function receive(data:Bytes) {
-		if (handshaked) {
-			var frame = WebSocket.readFrame(data);
-			switch frame.opcode {
-				case Text:
-					message(Text(frame.data.toString()));
-				case Binary:
-					message(Binary(frame.data));
-				case Close:
-					close();
-				case Ping:
-					WebSocket.sendFrame(socket, frame.data, Pong);
-				case Pong:
-					null;
-				case Continuation:
-					null;
-			}
+		var frame = WebSocket.readFrame(data);
+		switch frame.opcode {
+			case Text:
+				message(Text(frame.data.toString()));
+			case Binary:
+				message(Binary(frame.data));
+			case Close:
+				close();
+			case Ping:
+				WebSocket.sendFrame(socket, frame.data, Pong);
+			case Pong:
+				null;
+			case Continuation:
+				null;
 		}
 	}
 

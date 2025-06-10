@@ -77,6 +77,14 @@ private abstract ASocket<T:SysSocket>(T) from T to T {
 	public var host(get, never):ConnectionInfo;
 	public var peer(get, never):ConnectionInfo;
 
+	overload extern public inline function bind(host:HostInfo) {
+		bind(host.host, host.port);
+	}
+
+	overload extern public inline function bind(host:String, port:Int) {
+		this.bind(new Host(host), port);
+	}
+
 	overload extern public inline function connect(host:HostInfo) {
 		connect(host.host, host.port);
 	}
@@ -90,12 +98,12 @@ private abstract ASocket<T:SysSocket>(T) from T to T {
 	}
 
 	overload extern public inline function send(data:Bytes, ?timeout:Float):Bool {
-		if ((Socket.select([], [this], [], timeout)).write.length > 0) {
+		// if ((Socket.select([], [this], [], timeout)).write.length > 0) {
 			this.output.write(data);
 			this.output.flush();
 			return true;
-		}
-		return false;
+		// }
+		// return false;
 	}
 
 	public function recv(bufSize:Int = 4096, ?timeout:Float):Null<Bytes> {

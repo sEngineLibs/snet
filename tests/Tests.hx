@@ -1,34 +1,30 @@
 package;
 
 import slog.Log;
-import sys.thread.Thread;
 import snet.ws.WebSocketServer;
 import snet.ws.WebSocketClient;
 
 class Tests {
 	static function main() {
 		run();
+		haxe.Timer.delay(() -> Log.close(), 1000);
 	}
 
 	static function run() {
-		Thread.current().events.promise();
-
 		var ser = new WebSocketServer("ws://localhost:8080");
-		ser.onClientOpened(c -> {
-			c.send("Hi from server!");
-			c.onMessage(m -> switch m {
-				case Text(text):
-					Log.debug(text);
-				default:
-			});
-		});
-		ser.onClientClosed(c -> ser.close());
-		ser.onClosed(() -> Thread.current().events.runPromised(() -> {}));
+		ser.onClientOpened(c -> c.onMessage(m -> switch m {
+			case Text(text):
+				Log.debug(text);
+			default:
+		}));
 
 		var cli = new WebSocketClient("ws://localhost:8080");
-		cli.onOpened(() -> {
-			cli.send("Hi from client!");
-			cli.close();
-		});
+
+		var input = Sys.stdin().readLine();
+		while (input != "0") {
+			cli.send(input);
+			input = Sys.stdin().readLine();
+		}
+		ser.close();
 	}
 }

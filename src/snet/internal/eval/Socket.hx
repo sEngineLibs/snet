@@ -23,7 +23,7 @@ class Socket {
 		var _read = [];
 		var _write = [];
 		var _start = Sys.time();
-		function append() {
+		while (true) {
 			for (s in read)
 				if (s.native.isReadable()) {
 					_read.push(s);
@@ -35,13 +35,12 @@ class Socket {
 					write.remove(s);
 				}
 			if (read.length == 0 && write.length == 0)
-				return;
+				break;
 			else if (Sys.time() - _start >= timeout)
-				return;
+				break;
 			else
-				append();
+				Sys.sleep(0.01);
 		}
-		append();
 		return {
 			read: _read,
 			write: _write,
@@ -58,6 +57,25 @@ class Socket {
 					throw e.toString();
 			}
 		return null;
+	}
+
+	static inline function _block<T>(f:(Result<T>->Void)->Void):T {
+		var lock = new Lock();
+		var v = null;
+		var err = null;
+		f(r -> {
+			var v = try {
+				_try(r);
+			} catch (e) {
+				err = e;
+				null;
+			}
+			lock.release();
+		});
+		lock.wait();
+		if (err != null)
+			throw err;
+		return v;
 	}
 
 	static var loop:EventLoop;
@@ -85,31 +103,23 @@ class Socket {
 	}
 
 	public function host():{host:Host, port:Int} {
-		var _peer = _try(native.getSockName());
+		var info = _try(native.getSockName());
 		return {
-			host: new Host(_peer.toString()),
-			port: _peer.port
+			host: new Host(info.toString()),
+			port: info.port
 		}
 	}
 
 	public function peer():{host:Host, port:Int} {
-		var _peer = _try(native.getPeerName());
+		var info = _try(native.getPeerName());
 		return {
-			host: new Host(_peer.toString()),
-			port: _peer.port
+			host: new Host(info.toString()),
+			port: info.port
 		}
 	}
 
 	public function connect(host:sys.net.Host, port:Int) {
-		var lock = new Lock();
-		var err = null;
-		native.connect(_try(SockAddr.ipv4(host.toString(), port)), r -> {
-			_try(r);
-			lock.release();
-		});
-		lock.wait();
-		if (err != null)
-			throw err;
+		_block(f -> native.connect(_try(SockAddr.ipv4(host.toString(), port)), f));
 		input.startRead();
 	}
 
@@ -141,14 +151,8 @@ class Socket {
 	public function shutdown(read:Bool, write:Bool) {
 		if (read)
 			_try(native.readStop());
-		if (write) {
-			var lock = new Lock();
-			native.shutdown(r -> {
-				lock.release();
-				_try(r);
-			});
-			lock.wait();
-		}
+		if (write)
+			_block(f -> native.shutdown(f));
 	}
 
 	public function setFastSend(b:Bool) {
@@ -194,9 +198,14 @@ class Input extends haxe.io.Input {
 			throw haxe.io.Error.OutsideBounds;
 		if (buffers.length == 0)
 			lock.wait();
+
 		var l = 0;
 		var err = null;
+
 		for (b in buffers) {
+			if (len <= 0)
+				break;
+
 			var bs = b.size();
 			if (bs > 0) {
 				var rl = bs < len ? bs : len;
@@ -209,9 +218,11 @@ class Input extends haxe.io.Input {
 				break;
 			}
 		}
+
 		buffers = Buffer.drop(buffers, l);
-		if (err != null)
+		if (err != null && l == 0)
 			throw err;
+
 		return l;
 	}
 
@@ -288,7 +299,20 @@ class Output extends haxe.io.Output {
 		Flush any buffered data.
 	**/
 	override function flush() {
-		Socket._try(socket.native.tryWrite(buffers));
+		var lock = new Lock();
+		var err = null;
+		Socket._try(socket.native.write(buffers, (r, l) -> {
+			switch r {
+				case Ok(_):
+					buffers = Buffer.drop(buffers, l);
+				case Error(e):
+					err = e;
+			}
+			lock.release();
+		}));
+		lock.wait(socket.timeout);
+		if (err != null)
+			throw err;
 	}
 }
 #end

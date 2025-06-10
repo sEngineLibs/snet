@@ -40,7 +40,7 @@ abstract class Server<T:Constructible<ClientConstructor> & Client> extends Clien
 		// socket = isSecure ? new SecureSocket(certificate) : new Socket();
 		socket = new Socket();
 		try {
-			socket.bind(new sys.net.Host(local.host), local.port);
+			socket.bind(local.host, local.port);
 			socket.listen(limit);
 			isClosed = false;
 			logger.name = 'SERVER $local';

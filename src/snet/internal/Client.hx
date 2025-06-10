@@ -60,22 +60,22 @@ abstract class Client {
 		// } else
 		socket = new Socket();
 		socket.connect(remote);
-		// try {
-		// if (certificate?.verify && secureSocket != null)
-		// 	secureSocket.handshake();
-		local = socket.host.info;
-		logger.name = 'CLIENT $local - $remote';
-		isClosed = false;
-		connectClient();
-		logger.debug("Connected");
-		opened();
-		if (process)
-			this.process();
-		// } catch (e) {
-		// 	logger.error('Failed to connect: $e');
-		// 	socket.close();
-		// 	throw e;
-		// }
+		try {
+			// if (certificate?.verify && secureSocket != null)
+			// 	secureSocket.handshake();
+			local = socket.host.info;
+			logger.name = 'CLIENT $local - $remote';
+			isClosed = false;
+			connectClient();
+			logger.debug("Connected");
+			opened();
+			if (process)
+				this.process();
+		} catch (e) {
+			logger.error('Failed to connect: $e');
+			socket.close();
+			throw e;
+		}
 	}
 
 	public function close():Void {
