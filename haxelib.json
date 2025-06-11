@@ -21,6 +21,7 @@
     "contributors": ["smoothie"],
     "releasenote": "First release",
     "dependencies": {
-        "ssignals": ""
+        "ssignals": "",
+        "slog": ""
     }
 }

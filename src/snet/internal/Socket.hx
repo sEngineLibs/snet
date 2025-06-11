@@ -113,14 +113,17 @@ private abstract ASocket<T:SysSocket>(T) from T to T {
 		var data = new BytesBuffer();
 		final buf = Bytes.alloc(bufSize);
 
-		while (true) {
-			var len = this.input.readBytes(buf, 0, buf.length);
-			if (len <= 0)
-				return null;
-			data.addBytes(buf, 0, len);
-			if (len < buf.length)
-				break;
-		}
+		try {
+			while (true) {
+				var len = this.input.readBytes(buf, 0, buf.length);
+				if (len <= 0)
+					return null;
+				data.addBytes(buf, 0, len);
+				if (len < buf.length)
+					break;
+			}
+		} catch (e:haxe.io.Eof)
+			return null;
 
 		return data.getBytes();
 	}

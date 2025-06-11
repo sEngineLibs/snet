@@ -1,12 +1,6 @@
 package;
 
-import haxe.Json;
-import sys.thread.Thread;
-import snet.http.Requests;
 import snet.http.HttpServer;
-import slog.Log;
-import snet.ws.WebSocketServer;
-import snet.ws.WebSocketClient;
 
 class Tests {
 	static function main() {
@@ -14,21 +8,21 @@ class Tests {
 	}
 
 	static function run() {
-		var ser = new HttpServer("http://localhost:80");
-		ser.onClientOpened(c -> c.onRequest(r -> {
+		var http = new HttpServer("http://localhost:80");
+		http.onClientOpened(c -> c.onRequest(r -> {
 			trace(r);
+			var html = '<!DOCTYPE html><html><head><title>Hi</title></head><body><h1>Hello, world!</h1></body></html>';
 			c.response({
-				headers: ["A" => "B"]
+				status: 200,
+				headers: [
+					CONTENT_TYPE => "text/html; charset=utf-8",
+					CONTENT_LENGTH => Std.string(html.length)
+				],
+				data: html
 			});
 		}));
 
-		var resp = Requests.request("http://localhost:80", {
-			data: Json.stringify({
-				a: "b"
-			})
-		});
-		trace(resp);
-
-		Sys.getChar(true);
+		if (Sys.stdin().readLine() == "close")
+			http.close();
 	}
 }
