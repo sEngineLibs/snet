@@ -1,5 +1,7 @@
 package snet;
 
+class NetError extends haxe.Exception {}
+
 @:forward()
 abstract URI(URIData) from URIData to URIData {
 	@:from

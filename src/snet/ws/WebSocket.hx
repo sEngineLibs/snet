@@ -1,19 +1,13 @@
 package snet.ws;
 
-#if sys
-import haxe.Exception;
 import haxe.io.Bytes;
+#if (nodejs || sys)
 import haxe.io.BytesBuffer;
 import haxe.crypto.Sha1;
 import haxe.crypto.Base64;
 import snet.internal.Socket;
 
 using StringTools;
-
-enum Message {
-	Text(text:String);
-	Binary(data:Bytes);
-}
 
 enum abstract OpCode(Int) from Int to Int {
 	var Continuation = 0x0;
@@ -23,8 +17,6 @@ enum abstract OpCode(Int) from Int to Int {
 	var Ping = 0x9;
 	var Pong = 0xA;
 }
-
-class WebSocketError extends Exception {}
 
 class WebSocket {
 	public static function computeKey(key:String):String {
@@ -130,3 +122,17 @@ class WebSocket {
 	}
 }
 #end
+
+class WebSocketError extends haxe.Exception {}
+
+enum Message {
+	Text(text:String);
+	Binary(data:Bytes);
+}
+
+enum abstract State(Int) from Int to Int {
+	var CLOSED:Int = 3;
+	var CLOSING:Int = 2;
+	var CONNECTING:Int = 0;
+	var OPEN:Int = 1;
+}

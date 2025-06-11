@@ -1,12 +1,13 @@
 package snet.internal;
 
+#if (nodejs || sys)
 import haxe.Exception;
 import haxe.Constraints;
 import haxe.io.Bytes;
 import snet.Net;
 import snet.internal.Socket;
+import snet.internal.Client;
 
-class ServerError extends Exception {}
 private typedef ClientConstructor = (uri:URI, ?connect:Bool, ?process:Bool, ?certificate:Certificate) -> Void;
 
 #if !macro
@@ -23,7 +24,6 @@ abstract class Server<T:Constructible<ClientConstructor> & Client> extends Clien
 
 	public function new(uri:URI, limit:Int = 10, open:Bool = true, process:Bool = true, ?cert:Certificate) {
 		super(uri, false, cert);
-
 		local = remote;
 		remote = null;
 		this.limit = limit;
@@ -36,7 +36,7 @@ abstract class Server<T:Constructible<ClientConstructor> & Client> extends Clien
 
 	public function open(process:Bool = true):Void {
 		if (!isClosed)
-			throw new ServerError("Server is already open");
+			throw new NetError("Already open");
 		// socket = isSecure ? new SecureSocket(certificate) : new Socket();
 		socket = new Socket();
 		try {
@@ -61,7 +61,7 @@ abstract class Server<T:Constructible<ClientConstructor> & Client> extends Clien
 
 	public function broadcast(data:Bytes, ?exclude:Array<T>):Void {
 		if (isClosed)
-			throw new ServerError("Server is not open");
+			throw new NetError("Not open");
 		if (exclude != null && exclude.length > 0)
 			for (client in clients)
 				if (!exclude.contains(client))
@@ -72,7 +72,7 @@ abstract class Server<T:Constructible<ClientConstructor> & Client> extends Clien
 	}
 
 	function connectClient():Void {
-		throw new ServerError("Can't connect server");
+		throw new NetError("Can't connect server");
 	}
 
 	function closeClient() {
@@ -111,3 +111,4 @@ abstract class Server<T:Constructible<ClientConstructor> & Client> extends Clien
 		client.close();
 	}
 }
+#end

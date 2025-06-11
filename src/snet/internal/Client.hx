@@ -1,11 +1,10 @@
 package snet.internal;
 
+#if (nodejs || sys)
 import haxe.io.Bytes;
 import slog.Log;
 import snet.Net;
 import snet.internal.Socket;
-
-class ClientError extends haxe.Exception {}
 
 #if !macro
 @:build(ssignals.Signals.build())
@@ -32,13 +31,13 @@ abstract class Client {
 
 	@:signal function closed();
 
-	public function new(uri:URI, connect:Bool = true, process:Bool = true, ?certificate:Certificate):Void {
+	public function new(uri:URI, connect:Bool = true, process:Bool = true, ?cert:Certificate):Void {
 		if (uri == null)
-			throw new ClientError('Invalid URI');
+			throw new NetError('Invalid URI');
 
-		isSecure = uri.isSecure;
-		this.certificate = certificate;
 		remote = uri.host;
+		isSecure = uri.isSecure;
+		certificate = cert;
 
 		if (connect)
 			this.connect(process);
@@ -52,7 +51,7 @@ abstract class Client {
 
 	public function connect(process:Bool = true):Void {
 		if (!isClosed)
-			throw new ClientError("Client is already connected");
+			throw new NetError("Already connected");
 		// var secureSocket:SecureSocket = null;
 		// if (isSecure) {
 		// 	secureSocket = new SecureSocket(certificate);
@@ -80,18 +79,18 @@ abstract class Client {
 
 	public function close():Void {
 		if (isClosed)
-			throw new ClientError("Client is not connected");
+			throw new NetError("Not connected");
 		isClosed = true;
 	}
 
 	public function send(data:Bytes):Void {
 		if (isClosed)
-			throw new ClientError("Client is not connected");
+			throw new NetError("Not connected");
 		try {
 			if (socket.send(data))
 				logger.info('Sent ${data.length} bytes of data');
 			else
-				throw new ClientError("Client is not available for writing");
+				throw new NetError("Not available for writing");
 		} catch (e) {
 			logger.error('Failed to send data: $e');
 			throw e;
@@ -135,3 +134,4 @@ abstract class Client {
 		return logger.name;
 	}
 }
+#end

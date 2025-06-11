@@ -1,5 +1,6 @@
 package snet.internal;
 
+#if (nodejs || sys)
 import sys.net.Host;
 import haxe.io.Bytes;
 import haxe.io.BytesBuffer;
@@ -10,8 +11,8 @@ typedef SecureKey = sys.ssl.Key;
 typedef SecureCertificate = sys.ssl.Certificate;
 
 typedef SysSocket = // native socket
-	#if eval snet.internal.eval.Socket // eval
-	#elseif nodejs snet.internal.node.Socket // nodejs
+	// #if eval snet.internal.eval.Socket // eval
+	#if nodejs snet.internal.node.Socket // nodejs
 	#elseif php php.net.Socket // php
 	#else sys.net.Socket // other sys platforms
 	#end;
@@ -99,9 +100,9 @@ private abstract ASocket<T:SysSocket>(T) from T to T {
 
 	overload extern public inline function send(data:Bytes, ?timeout:Float):Bool {
 		// if ((Socket.select([], [this], [], timeout)).write.length > 0) {
-			this.output.write(data);
-			this.output.flush();
-			return true;
+		this.output.write(data);
+		this.output.flush();
+		return true;
 		// }
 		// return false;
 	}
@@ -122,8 +123,11 @@ private abstract ASocket<T:SysSocket>(T) from T to T {
 				if (len < buf.length)
 					break;
 			}
-		} catch (e:haxe.io.Eof)
-			return null;
+		} catch (e)
+			if (e.toString().toLowerCase().indexOf("eof") != -1)
+				return null;
+			else
+				throw e;
 
 		return data.getBytes();
 	}
@@ -146,3 +150,4 @@ private abstract ASocket<T:SysSocket>(T) from T to T {
 		}
 	}
 }
+#end

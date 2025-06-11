@@ -1,7 +1,11 @@
 package snet.http;
 
+#if (nodejs || sys)
 import haxe.io.Bytes;
+import snet.Net;
 import snet.http.Http;
+import snet.internal.Socket;
+import snet.internal.Client;
 
 #if !macro
 @:build(ssignals.Signals.build())
@@ -28,3 +32,4 @@ class HttpClient extends snet.internal.Client {
 		send(Bytes.ofString(response));
 	}
 }
+#end

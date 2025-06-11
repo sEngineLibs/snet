@@ -1,6 +1,8 @@
 package snet.tcp;
 
+#if (nodejs || sys)
 import haxe.io.Bytes;
+import snet.internal.Socket;
 
 #if !macro
 @:build(ssignals.Signals.build())
@@ -16,3 +18,4 @@ class TCPClient extends snet.internal.Client {
 		this.data(data);
 	}
 }
+#end

@@ -1,57 +1,13 @@
 package snet.ws;
 
-#if js
-@:forward()
-@:forward.new
-extern abstract WebSocketClient(js.html.WebSocket) {
-	public var onopen(get, set):() -> Void;
-	public var onerror(get, set):Dynamic->Void;
-	public var onmessage(get, set):Message->Void;
-	public var onclose(get, set):() -> Void;
-
-	inline function get_onopen() {
-		return cast this.onopen;
-	}
-
-	inline function set_onopen(value:() -> Void) {
-		this.onopen = value;
-		return onopen;
-	}
-
-	inline function get_onerror() {
-		return cast this.onerror;
-	}
-
-	inline function set_onerror(value:Dynamic->Void) {
-		this.onerror = value;
-		return onerror;
-	}
-
-	inline function get_onmessage() {
-		return cast this.onmessage;
-	}
-
-	inline function set_onmessage(value:(message:Message) -> Void) {
-		this.onmessage = value;
-		return onmessage;
-	}
-
-	inline function get_onclose() {
-		return cast this.onclose;
-	}
-
-	inline function set_onclose(value:() -> Void) {
-		this.onclose = value;
-		return onclose;
-	}
-}
-#elseif sys
 import haxe.io.Bytes;
+import snet.Net;
+import snet.ws.WebSocket;
+#if (nodejs || sys)
 import haxe.crypto.Base64;
 import snet.http.Http;
-import snet.http.Requests;
+import snet.internal.Socket;
 import snet.internal.Client;
-import snet.ws.WebSocket;
 
 using StringTools;
 
@@ -80,8 +36,8 @@ class WebSocketClient extends Client {
 		WebSocket.sendFrame(socket, data, Binary);
 	}
 
-	public function ping() {
-		return WebSocket.sendFrame(socket, Bytes.ofString("ping-" + Std.string(Math.random())), Ping);
+	function ping() {
+		WebSocket.sendFrame(socket, Bytes.ofString("ping-" + Std.string(Math.random())), Ping);
 	}
 
 	function connectClient() {
@@ -121,7 +77,7 @@ class WebSocketClient extends Client {
 		key = Base64.encode(b);
 
 		logger.debug('Handshaking with key $key');
-		var resp = Requests.customRequest(socket, false, {
+		var resp = Http.customRequest(socket, false, {
 			headers: [
 				HOST => remote,
 				USER_AGENT => "snet",
@@ -152,9 +108,92 @@ class WebSocketClient extends Client {
 				throw "Incorrect 'Sec-WebSocket-Accept' header value";
 		}
 	}
+}
+#elseif js
+import js.html.WebSocket as Socket;
+import slog.Log;
 
-	override function toString() {
-		return super.toString() + (key != null ? '[$key]' : "");
+#if !macro
+@:build(ssignals.Signals.build())
+#end
+class WebSocketClient {
+	var socket:Socket;
+	var logger:Logger = new Logger("CLIENT");
+
+	public var isClosed(default, null):Bool = true;
+
+	/**
+		The other side of a connected socket.
+	**/
+	public var remote(default, null):HostInfo;
+
+	@:signal function message(msg:Message);
+
+	@:signal function opened();
+
+	@:signal function closed();
+
+	public function new(uri:URI, connect:Bool = true, process:Bool = true) {
+		if (uri == null)
+			throw new NetError('Invalid URI');
+
+		if (!["ws", "wss"].contains(uri.proto))
+			throw new NetError('Invalid protocol: ${uri.proto}');
+
+		remote = uri.host;
+
+		if (connect)
+			this.connect(process);
+	}
+
+	public function connect(process:Bool = true):Void {
+		if (!isClosed)
+			throw new NetError("Already connected");
+		socket = new Socket('ws://$remote');
+		socket.onerror = e -> logger.error(e);
+		socket.onopen = () -> {
+			logger.name = 'CLIENT $remote';
+			isClosed = false;
+			logger.debug("Connected");
+			opened();
+			if (process)
+				this.process();
+		}
+	}
+
+	public function close():Void {
+		if (isClosed)
+			throw new NetError("Not connected");
+		socket.close();
+	}
+
+	overload extern inline function send(message:Message) {
+		return switch message {
+			case Text(text):
+				send(text);
+			case Binary(data):
+				send(data);
+		}
+	}
+
+	overload extern inline function send(text:String) {
+		if (isClosed)
+			throw new NetError("Not connected");
+		socket.send(text);
+		logger.info('Sent ${Bytes.ofString(text).length} bytes of data');
+	}
+
+	overload extern inline function send(data:Bytes) {
+		socket.send(data.getData());
+	}
+
+	function process():Void {
+		socket.onmessage = m -> message(Text(m));
+		socket.onclose = () -> isClosed = true;
+	}
+
+	function toString() {
+		return logger.name;
 	}
 }
 #end

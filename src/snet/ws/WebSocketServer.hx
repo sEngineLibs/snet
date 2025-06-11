@@ -1,7 +1,11 @@
 package snet.ws;
 
+#if (nodejs || sys)
+import snet.Net;
 import snet.http.Http;
 import snet.ws.WebSocket;
+import snet.internal.Socket;
+import snet.internal.Client;
 import snet.internal.Server;
 
 using StringTools;
@@ -32,7 +36,7 @@ class WebSocketServer extends Server<WebSocketClient> {
 
 	overload extern public inline function broadcast(text:String, ?exclude:Array<WebSocketClient>):Void {
 		if (isClosed)
-			throw new ServerError("Server is not open");
+			throw new NetError("Not open");
 		if (exclude != null && exclude.length > 0)
 			for (client in clients)
 				if (!exclude.contains(client))
@@ -87,3 +91,4 @@ class WebSocketServer extends Server<WebSocketClient> {
 		client.socket.send(resp);
 	}
 }
+#end
