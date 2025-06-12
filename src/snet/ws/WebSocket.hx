@@ -1,7 +1,7 @@
 package snet.ws;
 
-import haxe.io.Bytes;
 #if (nodejs || sys)
+import haxe.io.Bytes;
 import haxe.io.BytesBuffer;
 import haxe.crypto.Sha1;
 import haxe.crypto.Base64;
@@ -118,17 +118,11 @@ class WebSocket {
 	}
 
 	public static function sendFrame(socket:Socket, data:Bytes, opcode:OpCode):Void {
-		socket.send(WebSocket.writeFrame(data, opcode, true, true));
+		socket.output.write(WebSocket.writeFrame(data, opcode, true, true));
+		socket.output.flush();
 	}
 }
 #end
-
-class WebSocketError extends haxe.Exception {}
-
-enum Message {
-	Text(text:String);
-	Binary(data:Bytes);
-}
 
 enum abstract State(Int) from Int to Int {
 	var CLOSED:Int = 3;

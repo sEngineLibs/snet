@@ -3,13 +3,15 @@ package snet.internal;
 #if (nodejs || sys)
 import haxe.io.Bytes;
 import slog.Log;
+import sasync.Lazy;
+import sasync.Async;
 import snet.Net;
 import snet.internal.Socket;
 
 #if !macro
 @:build(ssignals.Signals.build())
 #end
-abstract class Client {
+class Client {
 	var socket:Socket;
 	var logger:Logger = new Logger("CLIENT");
 
@@ -31,92 +33,88 @@ abstract class Client {
 
 	@:signal function closed();
 
-	public function new(uri:URI, connect:Bool = true, process:Bool = true, ?cert:Certificate):Void {
-		if (uri == null)
-			throw new NetError('Invalid URI');
+	@:signal function data(data:Bytes);
 
-		remote = uri.host;
-		isSecure = uri.isSecure;
-		certificate = cert;
+	public function new(uri:URI, connect:Bool = true, ?cert:Certificate):Void {
+		if (uri != null) {
+			remote = uri.host;
+			isSecure = uri.isSecure;
+			certificate = cert;
 
-		if (connect)
-			this.connect(process);
+			if (connect)
+				this.connect();
+		}
 	}
 
-	abstract function receive(data:Bytes):Void;
+	function receive(data:Bytes) {
+		this.data(data);
+	}
 
-	abstract function connectClient():Void;
+	function connectClient() {}
 
-	abstract function closeClient():Void;
+	function closeClient() {}
 
-	public function connect(process:Bool = true):Void {
+	public function connect() {
+		return Async.background(() -> if (isClosed) {
+			try {
+				socket = new Socket();
+				socket.connect(remote);
+				isClosed = false;
+				// socket.setBlocking(false);
+				local = socket.host.info;
+				logger.name = 'CLIENT $local - $remote';
+				connectClient();
+				logger.debug("Connected");
+				opened();
+				process();
+			} catch (e) {
+				logger.error('Failed to connect: $e');
+				if (!isClosed) {
+					socket.close();
+					isClosed = true;
+				}
+			}
+		});
+	}
+
+	public function close() {
+		return new Lazy((resolve, reject) -> {
+			if (!isClosed) {
+				socket.close();
+				isClosed = true;
+			}
+			resolve();
+		}, false);
+	}
+
+	public function send(data:Bytes) {
 		if (!isClosed)
-			throw new NetError("Already connected");
-		// var secureSocket:SecureSocket = null;
-		// if (isSecure) {
-		// 	secureSocket = new SecureSocket(certificate);
-		// 	socket = secureSocket;
-		// } else
-		socket = new Socket();
-		socket.connect(remote);
-		try {
-			// if (certificate?.verify && secureSocket != null)
-			// 	secureSocket.handshake();
-			local = socket.host.info;
-			logger.name = 'CLIENT $local - $remote';
-			isClosed = false;
-			connectClient();
-			logger.debug("Connected");
-			opened();
-			if (process)
-				this.process();
-		} catch (e) {
-			logger.error('Failed to connect: $e');
-			socket.close();
-			throw e;
-		}
-	}
-
-	public function close():Void {
-		if (isClosed)
-			throw new NetError("Not connected");
-		isClosed = true;
-	}
-
-	public function send(data:Bytes):Void {
-		if (isClosed)
-			throw new NetError("Not connected");
-		try {
-			if (socket.send(data))
+			try {
+				socket.output.write(data);
+				socket.output.flush();
 				logger.info('Sent ${data.length} bytes of data');
-			else
-				throw new NetError("Not available for writing");
-		} catch (e) {
-			logger.error('Failed to send data: $e');
-			throw e;
-		}
+			} catch (e)
+				logger.error('Failed to send data: $e');
 	}
 
-	function process():Void {
-		#if target.threaded
-		sys.thread.Thread.create(() -> {
-		#end
+	function process() {
+		Async.background(() -> {
 			while (!isClosed)
 				if (!tick())
 					break;
-			isClosed = true;
 			closeClient();
-			socket.close();
+			if (!isClosed) {
+				socket.close();
+				isClosed = true;
+			}
 			logger.debug("Closed");
 			closed();
-		#if target.threaded
 		});
-		#end
 	}
 
 	function tick():Bool {
 		try {
-			var data = socket.recv();
+			var data = socket.read();
 			if (data != null) {
 				if (data.length > 0) {
 					logger.info('Received ${data.length} bytes of data');

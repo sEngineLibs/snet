@@ -1,53 +1,31 @@
 package snet.ws;
 
 #if (nodejs || sys)
+import haxe.io.Bytes;
 import snet.Net;
 import snet.http.Http;
 import snet.ws.WebSocket;
-import snet.internal.Socket;
-import snet.internal.Client;
 import snet.internal.Server;
 
 using StringTools;
 
 @:access(snet.ws.WebSocketClient)
 class WebSocketServer extends Server<WebSocketClient> {
-	overload extern public inline function send(message:Message):Void {
-		return switch message {
-			case Text(text):
-				send(text);
-			case Binary(data):
-				send(data);
-		}
-	}
-
 	overload extern public inline function send(text:String):Void {
 		broadcast(text);
-	}
-
-	overload extern public inline function broadcast(message:Message, ?exclude:Array<WebSocketClient>):Void {
-		return switch message {
-			case Text(text):
-				broadcast(text, exclude);
-			case Binary(data):
-				broadcast(data, exclude);
-		}
 	}
 
 	overload extern public inline function broadcast(text:String, ?exclude:Array<WebSocketClient>):Void {
 		if (isClosed)
 			throw new NetError("Not open");
-		if (exclude != null && exclude.length > 0)
-			for (client in clients)
-				if (!exclude.contains(client))
-					client.send(text);
-				else
-					for (client in clients)
-						client.send(text);
+		exclude = exclude ?? [];
+		for (client in clients)
+			if (!exclude.contains(client))
+				client.send(text);
 	}
 
-	function handleClient(client:WebSocketClient) {
-		var data = client.socket.recv(1.0);
+	override function handleClient(client:WebSocketClient) {
+		var data = client.socket.read(1.0);
 
 		if (data.length == 0) {
 			logger.error('No handshake data received from ${client.remote}');
@@ -88,7 +66,8 @@ class WebSocketServer extends Server<WebSocketClient> {
 			resp.headers.set(SEC_WEBSOCKET_ACCEPT, WebSocket.computeAcceptKey(key));
 		}
 
-		client.socket.send(resp);
+		client.socket.output.write(Bytes.ofString(resp));
+		client.socket.output.flush();
 	}
 }
 #end

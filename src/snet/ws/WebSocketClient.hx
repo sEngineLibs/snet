@@ -1,12 +1,10 @@
 package snet.ws;
 
 import haxe.io.Bytes;
-import snet.Net;
 import snet.ws.WebSocket;
 #if (nodejs || sys)
 import haxe.crypto.Base64;
 import snet.http.Http;
-import snet.internal.Socket;
 import snet.internal.Client;
 
 using StringTools;
@@ -15,18 +13,9 @@ using StringTools;
 @:build(ssignals.Signals.build())
 #end
 class WebSocketClient extends Client {
-	var key:String;
+	@:signal function bytes(bytes:Bytes);
 
-	@:signal function message(msg:Message);
-
-	overload extern inline function send(message:Message) {
-		return switch message {
-			case Text(text):
-				send(text);
-			case Binary(data):
-				send(data);
-		}
-	}
+	@:signal function text(text:String);
 
 	overload extern inline function send(text:String) {
 		WebSocket.sendFrame(socket, Bytes.ofString(text), Text);
@@ -40,26 +29,28 @@ class WebSocketClient extends Client {
 		WebSocket.sendFrame(socket, Bytes.ofString("ping-" + Std.string(Math.random())), Ping);
 	}
 
-	function connectClient() {
+	override function connectClient() {
 		try {
 			handshake();
-		} catch (e)
-			throw new WebSocketError('Handshake failed: $e');
+		} catch (e) {
+			logger.error('Handshake failed: $e');
+			throw e;
+		}
 	}
 
-	function closeClient() {
+	override function closeClient() {
 		WebSocket.sendFrame(socket, Bytes.ofString("close"), Close);
 	}
 
-	function receive(data:Bytes) {
+	override function receive(data:Bytes) {
 		var frame = WebSocket.readFrame(data);
 		switch frame.opcode {
 			case Text:
-				message(Text(frame.data.toString()));
+				text(frame.data.toString());
 			case Binary:
-				message(Binary(frame.data));
+				bytes(frame.data);
 			case Close:
-				close();
+				@await close();
 			case Ping:
 				WebSocket.sendFrame(socket, frame.data, Pong);
 			case Pong:
@@ -74,13 +65,12 @@ class WebSocketClient extends Client {
 		var b = Bytes.alloc(16);
 		for (i in 0...16)
 			b.set(i, Std.random(255));
-		key = Base64.encode(b);
+		var key = Base64.encode(b);
 
-		logger.debug('Handshaking with key $key');
 		var resp = Http.customRequest(socket, false, {
 			headers: [
 				HOST => remote,
-				USER_AGENT => "snet",
+				USER_AGENT => "haxe",
 				SEC_WEBSOCKET_KEY => key,
 				SEC_WEBSOCKET_VERSION => "13",
 				UPGRADE => "websocket",
@@ -89,15 +79,15 @@ class WebSocketClient extends Client {
 				CACHE_CONTROL => "no-cache",
 				ORIGIN => local
 			]
-		});
+		}, 1.0);
 
 		if (resp == null)
 			throw 'No response from ${remote.host}';
 		else
-			processHandshake(resp);
+			processHandshake(resp, key);
 	}
 
-	function processHandshake(resp:HttpResponse) {
+	function processHandshake(resp:HttpResponse, key:String) {
 		if (resp.error != null)
 			throw resp.error;
 		else {
@@ -112,6 +102,7 @@ class WebSocketClient extends Client {
 #elseif js
 import js.html.WebSocket as Socket;
 import slog.Log;
+import sasync.Lazy;
 
 #if !macro
 @:build(ssignals.Signals.build())
@@ -127,13 +118,15 @@ class WebSocketClient {
 	**/
 	public var remote(default, null):HostInfo;
 
-	@:signal function message(msg:Message);
+	@:signal function bytes(bytes:Bytes);
+
+	@:signal function text(text:String);
 
 	@:signal function opened();
 
 	@:signal function closed();
 
-	public function new(uri:URI, connect:Bool = true, process:Bool = true) {
+	public function new(uri:URI, connect:Bool = true) {
 		if (uri == null)
 			throw new NetError('Invalid URI');
 
@@ -143,37 +136,40 @@ class WebSocketClient {
 		remote = uri.host;
 
 		if (connect)
-			this.connect(process);
+			this.connect();
 	}
 
-	public function connect(process:Bool = true):Void {
-		if (!isClosed)
-			throw new NetError("Already connected");
-		socket = new Socket('ws://$remote');
-		socket.onerror = e -> logger.error(e);
-		socket.onopen = () -> {
-			logger.name = 'CLIENT $remote';
-			isClosed = false;
-			logger.debug("Connected");
-			opened();
-			if (process)
-				this.process();
-		}
+	public function connect() {
+		return new Lazy((resolve, reject) -> {
+			if (!isClosed)
+				throw new NetError("Already connected");
+			socket = new Socket('ws://$remote');
+			socket.onerror = e -> {
+				logger.error(e);
+				reject(new NetError(e));
+			}
+			socket.onopen = () -> {
+				isClosed = false;
+				socket.onmessage = m -> text(m);
+				socket.onclose = () -> isClosed = true;
+				logger.name = 'CLIENT $remote';
+				logger.debug("Connected");
+				opened();
+				resolve();
+			}
+		}, false);
 	}
 
-	public function close():Void {
-		if (isClosed)
-			throw new NetError("Not connected");
-		socket.close();
-	}
-
-	overload extern inline function send(message:Message) {
-		return switch message {
-			case Text(text):
-				send(text);
-			case Binary(data):
-				send(data);
-		}
+	public function close() {
+		return new Lazy((resolve, reject) -> {
+			if (isClosed)
+				throw new NetError("Not connected");
+			socket.close();
+			socket.onclose = () -> {
+				isClosed = true;
+				resolve();
+			}
+		}, false);
 	}
 
 	overload extern inline function send(text:String) {
@@ -185,11 +181,6 @@ class WebSocketClient {
 
 	overload extern inline function send(data:Bytes) {
 		socket.send(data.getData());
-	}
-
-	function process():Void {
-		socket.onmessage = m -> message(Text(m));
-		socket.onclose = () -> isClosed = true;
 	}
 
 	function toString() {

@@ -1,15 +1,24 @@
 package;
 
-import snet.http.Http;
-import snet.http.HttpServer;
+import sasync.Async;
+import sys.thread.Thread;
+import snet.ws.WebSocketClient;
+import snet.ws.WebSocketServer;
 
 class Tests {
 	static function main() {
-		var echo = new HttpServer("http://localhost:80");
-		echo.onClientOpened(c -> c.onRequest(r -> c.response({
-			data: r.data
-		})));
+		Thread.current().events.promise();
+		run();
+	}
 
-		trace(Http.request("http://localhost:80"));
+	static function run() {
+		var serv = new WebSocketServer("ws://localhost:8080");
+		serv.onClientOpened(c -> c.onText(t -> trace(t)));
+
+		var cli = new WebSocketClient("ws://localhost:8080");
+		cli.onOpened(() -> {
+			cli.send('Message 0');
+			Async.sleep(1.0).handle(_ -> cli.close());
+		});
 	}
 }
