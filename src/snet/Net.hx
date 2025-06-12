@@ -90,7 +90,7 @@ abstract HostInfo(HostInfoData) from HostInfoData to HostInfoData {
 		var regex = ~/^([^:]+)(?::(\d+))?$/;
 		if (value == null || !regex.match(value))
 			return null;
-		return new HostInfo(regex.matched(1), regex.matched(2) != null ? Std.parseInt(regex.matched(2)) : 80);
+		return new HostInfo(regex.matched(1), regex.matched(2) != null ? Std.parseInt(regex.matched(2)) : null);
 	}
 
 	public function new(host:String, port:Int) {
@@ -102,7 +102,10 @@ abstract HostInfo(HostInfoData) from HostInfoData to HostInfoData {
 
 	@:to
 	public inline function toString():String {
-		return '${this.host}:${this.port}';
+		var str = this.host;
+		if (this.port != null)
+			str += ':${this.port}';
+		return str;
 	}
 }
 

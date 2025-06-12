@@ -2,7 +2,8 @@
 -L slog
 -L sasync
 -L ssignals
--cp src
+-L snet
 -cp tests
+-cp src
 -main Tests
 --interp

@@ -94,6 +94,9 @@ abstract Response(ResponseData) from ResponseData {
 				this.headers.set(CONTENT_LENGTH, Std.string(Bytes.ofString(this.data).length));
 			if (!this.headers.exists(CONTENT_TYPE))
 				this.headers.set(CONTENT_TYPE, "text/plain; charset=utf-8");
+		} else {
+			if (!this.headers.exists(CONTENT_LENGTH))
+				this.headers.set(CONTENT_LENGTH, "0");
 		}
 
 		// headers

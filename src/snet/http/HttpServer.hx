@@ -18,7 +18,8 @@ class HttpClient extends snet.internal.Client {
 	}
 
 	public function response(response:HttpResponse) {
-		return send(Bytes.ofString(response));
+		trace(response);
+		send(Bytes.ofString(response));
 	}
 }
 #end

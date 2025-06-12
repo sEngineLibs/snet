@@ -116,7 +116,7 @@ class WebSocketClient {
 	/**
 		The other side of a connected socket.
 	**/
-	public var remote(default, null):HostInfo;
+	public var remote(default, null):snet.Net.HostInfo;
 
 	@:signal function bytes(bytes:Bytes);
 

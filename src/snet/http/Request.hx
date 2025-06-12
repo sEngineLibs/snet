@@ -24,7 +24,10 @@ abstract Request(RequestData) from RequestData {
 
 		var parts = requestLine.split(" ");
 		var method = parts[0];
-		var path = parts.length > 1 ? parts[1] : "/";
+		var fullPath = parts.length > 1 ? parts[1] : "/";
+		var queryIndex = fullPath.indexOf("?");
+		var path = queryIndex >= 0 ? fullPath.substr(0, queryIndex) : fullPath;
+		var query = queryIndex >= 0 ? fullPath.substr(queryIndex + 1) : null;
 		var version = parts.length > 2 ? parts[2] : "HTTP/1.1";
 
 		var headers:Map<Header, String> = [];
@@ -50,6 +53,8 @@ abstract Request(RequestData) from RequestData {
 		var body = lines.join("\r\n");
 		var contentType = headers.get("Content-Type");
 		var params:Map<String, String> = null;
+		if (query != null && method == "GET")
+			params = parseURLEncoded(query);
 		var files:Map<String, Bytes> = null;
 
 		if (contentType != null && contentType.indexOf("application/x-www-form-urlencoded") != -1)
