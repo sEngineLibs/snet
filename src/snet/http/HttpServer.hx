@@ -26,9 +26,24 @@ abstract class HttpServer extends snet.internal.Server<Client> {
 
 		onClientOpened(client -> {
 			var callback = (data:Bytes) -> {
-				var resp = processRawRequest(data);
-				logger.info('-> ${resp.status} ${resp.statusText}');
-				client.send(resp);
+				try {
+					var req:Request = data;
+					var resp = processRawRequest(req);
+					logger.log('<- ${req.method} ${req.path}');
+					var msg = '   -> ${resp.status} ${resp.statusText}';
+					if ((resp.status : Int) < 200)
+						logger.info(msg);
+					else if ((resp.status : Int) < 300)
+						logger.debug(msg);
+					else if ((resp.status : Int) < 400)
+						logger.warning(msg);
+					else if ((resp.status : Int) < 400)
+						logger.error(msg);
+					else
+						logger.fatal(msg);
+					client.send(resp);
+				} catch (e)
+					logger.error(e.message);
 			};
 			client.onData(callback);
 			client.onClosed(() -> client.offData(callback));
@@ -37,10 +52,8 @@ abstract class HttpServer extends snet.internal.Server<Client> {
 
 	abstract function processRequest(req:Request):Response;
 
-	function processRawRequest(data:Bytes):Response {
-		var req:Request = data;
+	function processRawRequest(req:Request):Response {
 		if (req != null) {
-			logger.debug('<- ${req.method} ${req.path}');
 			switch req.method {
 				case Get:
 					switch req.path {
