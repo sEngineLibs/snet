@@ -46,7 +46,7 @@ abstract class HttpServer extends snet.internal.Server<Client> {
 					switch req.path {
 						case "/":
 							return loadStatic("/index.html");
-						case var s if (config?.statics.contains(s)):
+						case var s if (matchesStaticPath(s)):
 							return loadStatic(s);
 						default:
 							return processRequest(req);
@@ -59,6 +59,20 @@ abstract class HttpServer extends snet.internal.Server<Client> {
 			status: BadRequest,
 			statusText: "Bad Request"
 		}
+	}
+
+	function matchesStaticPath(path:String):Bool {
+		for (pattern in config.statics) {
+			if (pattern.endsWith("/*")) {
+				var prefix = pattern.substr(0, pattern.length - 1);
+				if (path.startsWith(prefix))
+					return true;
+			} else {
+				if (path == pattern)
+					return true;
+			}
+		}
+		return false;
 	}
 
 	function loadStatic(path:String):Response {
