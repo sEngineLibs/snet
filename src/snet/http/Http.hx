@@ -68,13 +68,13 @@ class Http {
 	}
 	#if (nodejs || sys)
 	public static function customRequest(socket:Socket, close:Bool, req:HttpRequest, timeout:Float = 1.0) {
-		socket.output.write(Bytes.ofString(req));
+		socket.output.write(req);
 		socket.output.flush();
 		var data = socket.read(timeout);
 		var resp:HttpResponse = null;
 		if (data.length > 0)
 			try {
-				resp = data.toString();
+				resp = data;
 			} catch (e)
 				resp = {
 					status: BadGateway,

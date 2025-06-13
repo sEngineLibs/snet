@@ -13,10 +13,11 @@ class MapExt {
 @:forward()
 abstract Request(RequestData) from RequestData {
 	@:from
-	public static function fromString(raw:String):Request {
-		var lines = raw.split("\r\n");
+	public static function fromBytes(raw:Bytes):Request {
+		var str = raw.toString();
+		var lines = str.split("\r\n");
 		if (lines.length == 1)
-			lines = raw.split("\n");
+			lines = str.split("\n");
 
 		var requestLine = lines.shift();
 		if (requestLine == null || requestLine.trim() == "")
@@ -50,62 +51,30 @@ abstract Request(RequestData) from RequestData {
 			}
 		}
 
-		var body = lines.join("\r\n");
+		var headerEnd = str.indexOf("\r\n\r\n");
+		var bodyStart = headerEnd + 4;
+		var contentLength = headers.exists("Content-Length") ? Std.parseInt(headers.get("Content-Length")) : (raw.length - bodyStart);
+		var bodyBytes = raw.sub(bodyStart, contentLength);
+		var body = bodyBytes.toString();
+
 		var contentType = headers.get("Content-Type");
 		var params:Map<String, String> = null;
+
 		if (query != null && method == "GET")
 			params = parseURLEncoded(query);
-		var files:Map<String, Bytes> = null;
-
-		if (contentType != null && contentType.indexOf("application/x-www-form-urlencoded") != -1)
+		else if (contentType != null && contentType.indexOf("application/x-www-form-urlencoded") != -1)
 			params = parseURLEncoded(body);
-		else if (contentType != null && contentType.indexOf("multipart/form-data") != -1) {
-			var boundary = "--" + contentType.split("boundary=")[1];
-			final parts = body.split(boundary).slice(1, -1);
-			params = new Map();
-			files = new Map();
-
-			for (part in parts) {
-				var p = part.split("\r\n\r\n");
-				if (p.length != 2)
-					continue;
-				var headersBlock = p[0].trim();
-				var value = p[1].trim();
-
-				var name = null;
-				var filename = null;
-				for (h in headersBlock.split("\r\n"))
-					if (h.toLowerCase().startsWith("content-disposition"))
-						for (kv in h.split(";")) {
-							var kvp = kv.split("=");
-							if (kvp.length == 2) {
-								var k = kvp[0].trim(),
-									v = kvp[1].trim().replace("\"", "");
-								if (k == "name")
-									name = v;
-								if (k == "filename")
-									filename = v;
-							}
-						}
-
-				if (name != null)
-					if (filename != null)
-						files.set(name, Bytes.ofString(value));
-					else
-						params.set(name, value);
-			}
-		}
 
 		return {
 			method: method,
 			path: path,
 			version: version,
 			headers: headers,
-			data: body,
-			params: params,
 			cookies: cookies,
-			files: files
-		}
+			params: params,
+			data: (params == null ? body : null),
+			bytes: (params == null ? bodyBytes : null)
+		};
 	}
 
 	static function parseURLEncoded(body:String):Map<String, String> {
@@ -119,55 +88,54 @@ abstract Request(RequestData) from RequestData {
 	}
 
 	@:to
-	public function toString():String {
+	public function toBytes():Bytes {
 		var sb = new StringBuf();
-		sb.add((this.method != null ? this.method : "GET") + " " + (this.path != null ? this.path : "/") + " "
-			+ (this.version != null ? this.version : "HTTP/1.1") + "\r\n");
+		sb.add('${this.method} ${this.path} ${this.version}\r\n');
 
 		// cookies
 		if (this.cookies != null && !this.cookies.isEmpty()) {
 			var c = [];
 			for (k in this.cookies.keys())
-				c.push(k + "=" + this.cookies.get(k));
-			sb.add("Cookie: " + c.join("; ") + "\r\n");
+				c.push('$k=${this.cookies.get(k)}');
+			sb.add('Cookie: ${c.join("; ")}\r\n');
 		}
-
-		// headers
-		if (this.headers != null) {
-			for (k in this.headers.keys())
-				sb.add(k + ": " + this.headers.get(k) + "\r\n");
-		}
-		sb.add("\r\n");
 
 		// body
+		var body:Bytes = null;
 		if (this.data != null) {
-			sb.add(this.data);
-		} else if (this.params != null) {
-			var pairs = [];
+			body = Bytes.ofString(this.data);
+			if (!this.headers.exists("Content-Type"))
+				this.headers.set("Content-Type", "text/plain; charset=utf-8");
+		} else if (this.params != null && !this.params.isEmpty()) {
+			var encoded = [];
 			for (k in this.params.keys())
-				pairs.push(k.urlEncode() + "=" + this.params.get(k).urlEncode());
-			sb.add(pairs.join("&"));
-		} else if (this.files != null && !this.files.isEmpty()) {
-			final boundary = "----WebKitFormBoundary" + Math.floor(Math.random() * 1000000);
-			this.headers.set("Content-Type", "multipart/form-data; boundary=" + boundary);
-
-			for (name in this.params.keys()) {
-				sb.add("--" + boundary + "\r\n");
-				sb.add('Content-Disposition: form-data; name="' + name + '"\r\n\r\n');
-				sb.add(this.params.get(name) + "\r\n");
-			}
-
-			for (fname in this.files.keys()) {
-				sb.add("--" + boundary + "\r\n");
-				sb.add('Content-Disposition: form-data; name="' + fname + '"; filename="' + fname + '"\r\n');
-				sb.add("Content-Type: application/octet-stream\r\n\r\n");
-				sb.add(this.files.get(fname).toString() + "\r\n");
-			}
-
-			sb.add("--" + boundary + "--\r\n");
+				encoded.push(k.urlEncode() + "=" + this.params.get(k).urlEncode());
+			var encodedStr = encoded.join("&");
+			body = Bytes.ofString(encodedStr);
+			this.headers.set("Content-Type", "application/x-www-form-urlencoded");
+		} else if (this.bytes != null) {
+			body = this.bytes;
+			if (!this.headers.exists("Content-Type"))
+				this.headers.set("Content-Type", "application/octet-stream");
 		}
 
-		return sb.toString();
+		if (body != null && !this.headers.exists("Content-Length"))
+			this.headers.set("Content-Length", '${body.length}');
+
+		// headers
+		for (k in this.headers.keys())
+			sb.add('$k: ${this.headers.get(k)}\r\n');
+		sb.add("\r\n");
+
+		var headerBytes = Bytes.ofString(sb.toString());
+
+		if (body == null)
+			return headerBytes;
+
+		var full = Bytes.alloc(headerBytes.length + body.length);
+		full.blit(0, headerBytes, 0, headerBytes.length);
+		full.blit(headerBytes.length, body, 0, body.length);
+		return full;
 	}
 }
 
@@ -178,7 +146,7 @@ private class RequestData {
 	public var version:String = "HTTP/1.1";
 	public var headers:Map<Header, String> = [];
 	public var data:String = null;
+	public var bytes:Bytes = null;
 	public var params:Map<String, String> = [];
 	public var cookies:Map<String, String> = [];
-	public var files:Map<String, Bytes> = [];
 }

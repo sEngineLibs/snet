@@ -7,16 +7,28 @@ using StringTools;
 @:forward()
 abstract Response(ResponseData) from ResponseData {
 	@:from
-	public static function fromString(raw:String):Response {
-		var lines = raw.split("\r\n");
-		if (lines.length == 0)
+	public static function fromBytes(raw:Bytes):Response {
+		var str = raw.toString();
+		var headerEnd = str.indexOf("\r\n\r\n");
+
+		if (headerEnd == -1)
 			return {
 				status: 0,
 				statusText: "Error",
-				error: "Empty response"
+				error: "Invalid response: no header terminator"
 			};
 
+		var headerPart = str.substr(0, headerEnd);
+		var lines = headerPart.split("\r\n");
+
 		var statusLine = lines.shift();
+		if (statusLine == null || statusLine.trim() == "")
+			return {
+				status: 0,
+				statusText: "Error",
+				error: "Empty status line"
+			};
+
 		var parts = statusLine.split(" ");
 		var version = parts[0];
 		var status = Std.parseInt(parts[1]);
@@ -24,15 +36,14 @@ abstract Response(ResponseData) from ResponseData {
 
 		var headers:Map<Header, String> = [];
 		var cookies:Map<String, String> = [];
-		while (lines.length > 0) {
-			var line = lines.shift();
-			if (line == "")
-				break;
+
+		for (line in lines) {
 			var sep = line.indexOf(":");
 			if (sep > -1) {
 				var key = line.substr(0, sep).trim();
 				var value = line.substr(sep + 1).trim();
 				headers.set(key, value);
+
 				if (key.toLowerCase() == "set-cookie") {
 					var kv = value.split("=");
 					if (kv.length >= 2)
@@ -41,20 +52,49 @@ abstract Response(ResponseData) from ResponseData {
 			}
 		}
 
-		var body = "";
-		if (headers.get(TRANSFER_ENCODING) == "chunked")
-			body = parseChunkedBody(lines);
-		else
-			body = lines.join("\r\n");
+		// body: read binary starting from after \r\n\r\n
+		var bodyStart = headerEnd + 4;
+		var bodyLength = raw.length - bodyStart;
 
-		return {
-			version: version,
-			status: status,
-			statusText: statusText,
-			headers: headers,
-			cookies: cookies,
-			data: body
-		};
+		// transfer-Encoding: chunked
+		if (headers.get(TRANSFER_ENCODING) == "chunked") {
+			var bodyStr = raw.sub(bodyStart, bodyLength).toString();
+			return {
+				version: version,
+				status: status,
+				statusText: statusText,
+				headers: headers,
+				cookies: cookies,
+				data: parseChunkedBody(bodyStr.split("\r\n"))
+			};
+		}
+
+		// if Content-Length is set — we know exactly how many bytes to read
+		var contentLength = headers.exists(CONTENT_LENGTH) ? Std.parseInt(headers.get(CONTENT_LENGTH)) : bodyLength;
+
+		var contentBytes = raw.sub(bodyStart, contentLength);
+		var contentType = headers.get(CONTENT_TYPE);
+
+		// choose whether it's binary or text
+		if (contentType != null && contentType.startsWith("text/") || contentType.contains("json")) {
+			return {
+				version: version,
+				status: status,
+				statusText: statusText,
+				headers: headers,
+				cookies: cookies,
+				data: contentBytes.toString()
+			};
+		} else {
+			return {
+				version: version,
+				status: status,
+				statusText: statusText,
+				headers: headers,
+				cookies: cookies,
+				bytes: contentBytes
+			};
+		}
 	}
 
 	static function parseChunkedBody(lines:Array<String>):String {
@@ -79,7 +119,7 @@ abstract Response(ResponseData) from ResponseData {
 	}
 
 	@:to
-	public function toString():String {
+	public function toBytes():Bytes {
 		var sb = new StringBuf();
 		sb.add('${this.version} ${this.status} ${this.statusText}\r\n');
 
@@ -89,40 +129,31 @@ abstract Response(ResponseData) from ResponseData {
 				sb.add('Set-Cookie: $k=${this.cookies.get(k)}; Path=/\r\n');
 		}
 
-		if (this.data != null) {
-			if (!this.headers.exists(CONTENT_LENGTH))
-				this.headers.set(CONTENT_LENGTH, Std.string(Bytes.ofString(this.data).length));
-			if (!this.headers.exists(CONTENT_TYPE))
-				this.headers.set(CONTENT_TYPE, "text/plain; charset=utf-8");
-		} else {
-			if (!this.headers.exists(CONTENT_LENGTH))
-				this.headers.set(CONTENT_LENGTH, "0");
-		}
+		final hasBinary = this.bytes != null;
+		final bodyLength = hasBinary ? this.bytes.length : (this.data != null ? Bytes.ofString(this.data).length : 0);
+
+		if (!this.headers.exists(CONTENT_LENGTH))
+			this.headers.set(CONTENT_LENGTH, '$bodyLength');
+
+		if (this.data != null && !this.headers.exists(CONTENT_TYPE))
+			this.headers.set(CONTENT_TYPE, "text/plain; charset=utf-8");
 
 		// headers
-		if (this.headers != null)
-			for (k in this.headers.keys())
-				sb.add('$k: ${this.headers.get(k)}\r\n');
-
+		for (k in this.headers.keys())
+			sb.add('$k: ${this.headers.get(k)}\r\n');
 		sb.add("\r\n");
 
-		// body
-		if (this.data != null) {
-			if (this.headers != null && this.headers.get(TRANSFER_ENCODING) == "chunked") {
-				var chunkSize = 8;
-				var i = 0;
-				while (i < this.data.length) {
-					var chunk = this.data.substr(i, chunkSize);
-					sb.add(StringTools.hex(chunk.length) + "\r\n");
-					sb.add(chunk + "\r\n");
-					i += chunk.length;
-				}
-				sb.add("0\r\n\r\n"); // end chunk
-			} else
-				sb.add(this.data);
-		}
+		var headBytes = Bytes.ofString(sb.toString());
 
-		return sb.toString();
+		var full = Bytes.alloc(headBytes.length + bodyLength);
+		full.blit(0, headBytes, 0, headBytes.length);
+
+		if (hasBinary)
+			full.blit(headBytes.length, this.bytes, 0, this.bytes.length);
+		else if (this.data != null)
+			full.blit(headBytes.length, Bytes.ofString(this.data), 0, bodyLength);
+
+		return full;
 	}
 }
 
@@ -133,6 +164,7 @@ private class ResponseData {
 	public var version:String = "HTTP/1.1";
 	public var headers:Map<Header, String> = [];
 	public var data:String = null;
+	public var bytes:Bytes = null;
 	public var error:String = null;
 	public var cookies:Map<String, String> = [];
 }

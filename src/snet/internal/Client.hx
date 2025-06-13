@@ -20,12 +20,17 @@ class Client {
 	public var certificate(default, null):Certificate;
 
 	/**
-		Our side of a connected socket.
+		Absolute uri of a client
+	**/
+	public var uri(default, null):URI;
+
+	/**
+		Local side of a client.
 	**/
 	public var local(default, null):HostInfo;
 
 	/**
-		The other side of a connected socket.
+		Remote side of a client.
 	**/
 	public var remote(default, null):HostInfo;
 
@@ -37,6 +42,7 @@ class Client {
 
 	public function new(uri:URI, connect:Bool = true, ?cert:Certificate):Void {
 		if (uri != null) {
+			this.uri = uri;
 			remote = uri.host;
 			isSecure = uri.isSecure;
 			certificate = cert;
@@ -92,7 +98,6 @@ class Client {
 			try {
 				socket.output.write(data);
 				socket.output.flush();
-				logger.info('Sent ${data.length} bytes of data');
 			} catch (e)
 				logger.error('Failed to send data: $e');
 	}
@@ -116,10 +121,8 @@ class Client {
 		try {
 			var data = socket.read();
 			if (data != null) {
-				if (data.length > 0) {
-					logger.info('Received ${data.length} bytes of data');
+				if (data.length > 0)
 					receive(data);
-				}
 				return true;
 			} else
 				logger.debug('Connection closed by peer');
