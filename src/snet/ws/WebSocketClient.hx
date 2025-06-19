@@ -1,13 +1,13 @@
 package snet.ws;
 
-import haxe.Json;
 import haxe.io.Bytes;
 import snet.Net;
-import snet.ws.WebSocket;
 #if (nodejs || sys)
+import haxe.Json;
 import haxe.crypto.Base64;
 import snet.http.Http;
 import snet.internal.Client;
+import snet.ws.WebSocket;
 
 using StringTools;
 
@@ -174,8 +174,6 @@ class WebSocketClient {
 
 	public function close() {
 		return new Lazy((resolve, reject) -> {
-			if (isClosed)
-				throw new NetError("Not connected");
 			socket.close();
 			socket.onclose = () -> {
 				isClosed = true;
