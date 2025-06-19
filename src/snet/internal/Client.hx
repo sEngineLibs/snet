@@ -94,12 +94,12 @@ class Client {
 	}
 
 	public function send(data:Bytes) {
-		if (!isClosed)
-			try {
-				socket.output.write(data);
-				socket.output.flush();
-			} catch (e)
-				logger.error('Failed to send data: $e');
+		try {
+			if (isClosed)
+				throw new NetError("Closed");
+			socket.send(data);
+		} catch (e)
+			logger.error('Failed to send data: $e');
 	}
 
 	function process() {

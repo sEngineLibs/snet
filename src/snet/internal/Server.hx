@@ -42,7 +42,7 @@ class Server<T:Constructible<ClientConstructor> & Client> extends Client {
 		return Async.background(() -> if (isClosed) {
 			socket = new Socket();
 			try {
-				socket.bind(local.host, local.port);
+				socket.bind(local);
 				socket.listen(limit);
 				isClosed = false;
 				logger.name = 'SERVER $local';
@@ -92,6 +92,7 @@ class Server<T:Constructible<ClientConstructor> & Client> extends Client {
 					});
 					clients.push(client);
 					clientOpened(client);
+					client.send(Bytes.ofString("hi"));
 					client.process();
 				} catch (e) {}
 			}

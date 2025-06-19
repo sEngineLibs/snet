@@ -116,11 +116,6 @@ class WebSocket {
 			data: payload
 		};
 	}
-
-	public static function sendFrame(socket:Socket, data:Bytes, opcode:OpCode):Void {
-		socket.output.write(WebSocket.writeFrame(data, opcode, true, true));
-		socket.output.flush();
-	}
 }
 #end
 

@@ -1,6 +1,8 @@
 package snet.ws;
 
+import haxe.Json;
 import haxe.io.Bytes;
+import snet.Net;
 import snet.ws.WebSocket;
 #if (nodejs || sys)
 import haxe.crypto.Base64;
@@ -13,20 +15,22 @@ using StringTools;
 @:build(ssignals.Signals.build())
 #end
 class WebSocketClient extends Client {
+	var isHandler:Bool = false;
+
 	@:signal function bytes(bytes:Bytes);
 
 	@:signal function text(text:String);
 
-	overload extern inline function send(text:String) {
-		WebSocket.sendFrame(socket, Bytes.ofString(text), Text);
+	overload extern public inline function send(text:String) {
+		_send(Bytes.ofString(text), Text);
 	}
 
-	overload extern override inline function send(data:Bytes) {
-		WebSocket.sendFrame(socket, data, Binary);
+	overload extern public override inline function send(data:Bytes) {
+		_send(data, Binary);
 	}
 
 	function ping() {
-		WebSocket.sendFrame(socket, Bytes.ofString("ping-" + Std.string(Math.random())), Ping);
+		_send(Bytes.ofString('ping-${Math.random()}'), Ping);
 	}
 
 	override function connectClient() {
@@ -39,7 +43,7 @@ class WebSocketClient extends Client {
 	}
 
 	override function closeClient() {
-		WebSocket.sendFrame(socket, Bytes.ofString("close"), Close);
+		_send(Bytes.ofString("close"), Close);
 	}
 
 	override function receive(data:Bytes) {
@@ -50,9 +54,9 @@ class WebSocketClient extends Client {
 			case Binary:
 				bytes(frame.data);
 			case Close:
-				@await close();
+				close();
 			case Ping:
-				WebSocket.sendFrame(socket, frame.data, Pong);
+				_send(frame.data, Pong);
 			case Pong:
 				null;
 			case Continuation:
@@ -97,6 +101,10 @@ class WebSocketClient extends Client {
 			if (secKey != WebSocket.computeKey(key))
 				throw "Incorrect 'Sec-WebSocket-Accept' header value";
 		}
+	}
+
+	function _send(data:Bytes, opcode:OpCode) {
+		super.send(WebSocket.writeFrame(data, opcode, !isHandler, true));
 	}
 }
 #elseif js
@@ -145,13 +153,17 @@ class WebSocketClient {
 				throw new NetError("Already connected");
 			socket = new Socket('ws://$remote');
 			socket.onerror = e -> {
-				logger.error(e);
-				reject(new NetError(e));
+				logger.error(haxe.Json.stringify(e));
+				js.Browser.console.error(e);
+				reject(e);
 			}
 			socket.onopen = () -> {
 				isClosed = false;
-				socket.onmessage = m -> text(m);
-				socket.onclose = () -> isClosed = true;
+				socket.onmessage = m -> text(m.data); // [object Blob]
+				socket.onclose = () -> {
+					isClosed = true;
+					closed();
+				}
 				logger.name = 'CLIENT $remote';
 				logger.debug("Connected");
 				opened();
@@ -167,19 +179,20 @@ class WebSocketClient {
 			socket.close();
 			socket.onclose = () -> {
 				isClosed = true;
+				closed();
 				resolve();
 			}
 		}, false);
 	}
 
-	overload extern inline function send(text:String) {
+	overload extern public inline function send(text:String) {
 		if (isClosed)
 			throw new NetError("Not connected");
 		socket.send(text);
 		logger.info('Sent ${Bytes.ofString(text).length} bytes of data');
 	}
 
-	overload extern inline function send(data:Bytes) {
+	overload extern public inline function send(data:Bytes) {
 		socket.send(data.getData());
 	}
 

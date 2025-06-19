@@ -68,8 +68,8 @@ class Http {
 	}
 	#if (nodejs || sys)
 	public static function customRequest(socket:Socket, close:Bool, req:HttpRequest, timeout:Float = 1.0) {
-		socket.output.write(req);
-		socket.output.flush();
+		socket.send(req);
+
 		var data = socket.read(timeout);
 		var resp:HttpResponse = null;
 		if (data.length > 0)

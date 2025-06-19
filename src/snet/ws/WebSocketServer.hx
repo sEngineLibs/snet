@@ -72,8 +72,8 @@ class WebSocketServer extends Server<WebSocketClient> {
 				statusText: "Bad Request"
 			}
 
-		client.socket.output.write(resp);
-		client.socket.output.flush();
+		client.socket.send(resp);
+		client.isHandler = true;
 	}
 }
 #end

@@ -116,6 +116,13 @@ private abstract ASocket<T:SysSocket>(T) from T to T {
 		this.connect(new Host(host), port);
 	}
 
+	public function send(data:Bytes, ?timeout:Float) {
+		if (Socket.select([], [this], [], timeout).write.length == 0)
+			return;
+		this.output.write(data);
+		this.output.flush();
+	}
+
 	/**
 		Read the whole data available on the socket.
 
